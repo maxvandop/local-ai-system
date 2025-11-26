@@ -1,0 +1,3 @@
+# Kitten TTS Configuration
+model: "tts_models/en/ljspeech/tacotron2-DDC"
+vocoder: "vocoder_models/en/ljspeech/hifigan_v2"

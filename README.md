@@ -10,15 +10,14 @@ git clone <your-repo-url>
 cd local-ai-system
 
 # 2. Run the setup script
-chmod +x setup.sh
-./setup.sh
+bash setup.sh
 
 # 3. Configure your environment
 cp .env.example .env
 # Edit .env with your settings
 
 # 4. Create the network
-docker network create local-bridge
+docker network create local-ai-network
 
 # 5. Start services (choose your profile)
 docker compose --profile all up -d
