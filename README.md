@@ -16,11 +16,12 @@ bash setup.sh
 cp .env.example .env
 # Edit .env with your settings
 
-# 4. Create the network
+# 4. Create the network (ensure docker is running)
 docker network create local-ai-network
 
 # 5. Start services (choose your profile)
 docker compose --profile all up -d
+docker compose --profile all-gpu up -d
 ```
 
 ## 📦 Services Included

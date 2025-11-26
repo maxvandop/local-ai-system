@@ -59,7 +59,7 @@ services:
     networks: ['local-ai-network']
     restart: unless-stopped
     ports:
-      - 5432:5432
+      - 5433:5432
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD
@@ -168,9 +168,10 @@ services:
   # ============================================================================
   comfyui:
     profiles: ["comfyui", "all-gpu"]
-    image: lecode-official/comfyui-docker:latest
+    image: ghcr.io/lecode-official/comfyui-docker:latest
     container_name: comfyui
     networks: ['local-ai-network']
+    runtime: nvidia
     environment:
       USER_ID: ${USER_ID:-1000}
       GROUP_ID: ${GROUP_ID:-1000}
@@ -179,6 +180,13 @@ services:
       - ${COMFYUI_CUSTOM_NODES_PATH}:/opt/comfyui/custom_nodes:rw
     ports:
       - "8188:8188"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped
 
   # ============================================================================
