@@ -53,7 +53,7 @@ services:
   # N8N WORKFLOW AUTOMATION
   # ============================================================================
   postgres:
-    profiles: ["n8n", "all"]
+    profiles: ["n8n", "all", "all-gpu"]
     image: postgres:16-alpine
     hostname: postgres
     container_name: postgres-local-ai
@@ -74,7 +74,7 @@ services:
       retries: 10
 
   n8n-import:
-    profiles: ["n8n", "all"]
+    profiles: ["n8n", "all", "all-gpu"]
     <<: *service-n8n
     hostname: n8n-import
     container_name: n8n-local-ai-import
@@ -89,7 +89,7 @@ services:
         condition: service_healthy
 
   n8n:
-    profiles: ["n8n", "all"]
+    profiles: ["n8n", "all", "all-gpu"]
     <<: *service-n8n
     hostname: n8n
     container_name: n8n-local-ai
@@ -107,7 +107,7 @@ services:
         condition: service_completed_successfully
 
   qdrant:
-    profiles: ["n8n", "all"]
+    profiles: ["n8n", "all", "all-gpu"]
     image: qdrant/qdrant
     hostname: qdrant
     container_name: qdrant-local-ai
@@ -152,7 +152,7 @@ services:
   # WHISPER - SPEECH TO TEXT
   # ============================================================================
   whisper:
-    profiles: ["whisper", "all"]
+    profiles: ["whisper", "all", "all-gpu"]
     build:
       context: ./whisper
       dockerfile: Dockerfile
