@@ -163,6 +163,23 @@ docker compose --profile all-gpu up -d
 # Update specific service
 docker compose pull n8n
 docker compose up -d n8n-local-ai
+
+# Run Backup script
+backup-n8n.sh
+
+# Export everything
+docker exec n8n-local-ai n8n export:workflow --all --output=/data/shared/
+docker exec n8n-local-ai n8n export:credentials --all --output=/data/shared/
+
+# Import everything
+docker exec n8n-local-ai n8n import:workflow --separate --input=/data/shared/workflows/
+docker exec n8n-local-ai n8n import:credentials --separate --input=/data/shared/credentials/
+
+# Database backup
+docker exec postgres-local-ai pg_dump -U n8n n8n > n8n-backup.sql
+
+# Database restore
+cat n8n-backup.sql | docker exec -i postgres-local-ai psql -U n8n -d n8n
 ```
 
 ## 🔄 Updating Your Services
