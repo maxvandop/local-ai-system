@@ -1,0 +1,215 @@
+volumes:
+  n8n_storage:
+  postgres_storage:
+  ollama_storage:
+  qdrant_storage:
+  hf_cache:
+
+networks:
+  local-bridge: 
+    external: true
+
+x-n8n: &service-n8n
+  image: n8nio/n8n:latest
+  networks: ['local-bridge']
+  environment:
+    - DB_TYPE=postgresdb
+    - DB_POSTGRESDB_HOST=postgres
+    - DB_POSTGRESDB_USER=${POSTGRES_USER}
+    - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+    - N8N_DIAGNOSTICS_ENABLED=false
+    - N8N_PERSONALIZATION_ENABLED=false
+    - N8N_ENCRYPTION_KEY
+    - N8N_USER_MANAGEMENT_JWT_SECRET
+    - WEBHOOK_URL
+    - OLLAMA_HOST=${OLLAMA_HOST:-ollama:11434}
+  env_file:
+    - path: .env
+      required: true
+
+x-ollama: &service-ollama
+  image: ollama/ollama:latest
+  networks: ['local-bridge']
+  restart: unless-stopped
+  ports:
+    - 11434:11434
+  volumes:
+    - ollama_storage:/root/.ollama
+  environment:
+    - OLLAMA_FLASH_ATTENTION=true
+
+x-init-ollama: &init-ollama
+  image: ollama/ollama:latest
+  networks: ['local-bridge']
+  volumes:
+    - ollama_storage:/root/.ollama
+  entrypoint: /bin/sh
+  command:
+    - "-c"
+    - "sleep 3; ollama pull llama3.2; ollama pull nomic-embed-text; ollama pull gemma3:latest"
+
+services:
+  # ============================================================================
+  # N8N WORKFLOW AUTOMATION
+  # ============================================================================
+  postgres:
+    profiles: ["n8n", "all"]
+    image: postgres:16-alpine
+    hostname: postgres
+    networks: ['local-bridge']
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+    volumes:
+      - postgres_storage:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  n8n-import:
+    profiles: ["n8n", "all"]
+    <<: *service-n8n
+    hostname: n8n-import
+    container_name: n8n-import
+    entrypoint: /bin/sh
+    command:
+      - "-c"
+      - "n8n import:credentials --separate --input=/demo-data/credentials && n8n import:workflow --separate --input=/demo-data/workflows"
+    volumes:
+      - ./n8n/demo-data:/demo-data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  n8n:
+    profiles: ["n8n", "all"]
+    <<: *service-n8n
+    hostname: n8n
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - 5678:5678
+    volumes:
+      - n8n_storage:/home/node/.n8n
+      - ./n8n/demo-data:/demo-data
+      - ./shared:/data/shared
+    depends_on:
+      postgres:
+        condition: service_healthy
+      n8n-import:
+        condition: service_completed_successfully
+
+  qdrant:
+    profiles: ["n8n", "all"]
+    image: qdrant/qdrant
+    hostname: qdrant
+    container_name: qdrant
+    networks: ['local-bridge']
+    restart: unless-stopped
+    ports:
+      - 6333:6333
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  # ============================================================================
+  # OLLAMA - LLM INFERENCE
+  # ============================================================================
+  ollama-gpu:
+    profiles: ["ollama-gpu", "all-gpu"]
+    <<: *service-ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ollama-pull-llama-gpu:
+    profiles: ["ollama-gpu", "all-gpu"]
+    <<: *init-ollama
+    depends_on:
+      - ollama-gpu
+
+  ollama-cpu:
+    profiles: ["ollama-cpu", "all"]
+    <<: *service-ollama
+
+  ollama-pull-llama-cpu:
+    profiles: ["ollama-cpu", "all"]
+    <<: *init-ollama
+    depends_on:
+      - ollama-cpu
+
+  # ============================================================================
+  # WHISPER - SPEECH TO TEXT
+  # ============================================================================
+  whisper:
+    profiles: ["whisper", "all"]
+    build:
+      context: ./whisper
+      dockerfile: Dockerfile
+    container_name: whisper
+    ports:
+      - "5001:5001"
+    networks: ['local-bridge']
+    environment:
+      - WHISPER_HOST=whisper:5001
+    restart: unless-stopped
+
+  # ============================================================================
+  # COMFYUI - IMAGE GENERATION
+  # ============================================================================
+  comfyui:
+    profiles: ["comfyui", "all-gpu"]
+    image: lecode-official/comfyui-docker:latest
+    container_name: comfyui
+    networks: ['local-bridge']
+    environment:
+      USER_ID: ${USER_ID:-1000}
+      GROUP_ID: ${GROUP_ID:-1000}
+    volumes:
+      - ${COMFYUI_MODELS_PATH}:/opt/comfyui/models:rw
+      - ${COMFYUI_CUSTOM_NODES_PATH}:/opt/comfyui/custom_nodes:rw
+    ports:
+      - "8188:8188"
+    restart: unless-stopped
+
+  # ============================================================================
+  # KITTEN TTS - TEXT TO SPEECH
+  # ============================================================================
+  kitten-tts-server:
+    profiles: ["tts", "all-gpu"]
+    build:
+      args:
+        - RUNTIME=${TTS_RUNTIME:-nvidia}
+      context: ./kitten-tts
+      dockerfile: Dockerfile
+    container_name: kitten-tts
+    ports:
+      - "${TTS_PORT:-8005}:8005"
+    networks: ['local-bridge']
+    volumes:
+      - ./kitten-tts/config.yaml:/app/config.yaml
+      - ./kitten-tts/outputs:/app/outputs
+      - ./kitten-tts/logs:/app/logs
+      - hf_cache:/app/hf_cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    environment:
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - KITTEN_HOST=kitten-tts:8005
