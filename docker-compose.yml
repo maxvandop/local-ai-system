@@ -56,6 +56,7 @@ services:
     profiles: ["n8n", "all"]
     image: postgres:16-alpine
     hostname: postgres
+    container_name: postgres-local-ai
     networks: ['local-ai-network']
     restart: unless-stopped
     ports:
@@ -76,7 +77,7 @@ services:
     profiles: ["n8n", "all"]
     <<: *service-n8n
     hostname: n8n-import
-    container_name: n8n-import
+    container_name: n8n-local-ai-import
     entrypoint: /bin/sh
     command:
       - "-c"
@@ -91,7 +92,7 @@ services:
     profiles: ["n8n", "all"]
     <<: *service-n8n
     hostname: n8n
-    container_name: n8n
+    container_name: n8n-local-ai
     restart: unless-stopped
     ports:
       - 5678:5678
@@ -109,7 +110,7 @@ services:
     profiles: ["n8n", "all"]
     image: qdrant/qdrant
     hostname: qdrant
-    container_name: qdrant
+    container_name: qdrant-local-ai
     networks: ['local-ai-network']
     restart: unless-stopped
     ports:
@@ -155,7 +156,7 @@ services:
     build:
       context: ./whisper
       dockerfile: Dockerfile
-    container_name: whisper
+    container_name: whisper-local-ai
     ports:
       - "5001:5001"
     networks: ['local-ai-network']
@@ -169,7 +170,7 @@ services:
   comfyui:
     profiles: ["comfyui", "all-gpu"]
     image: ghcr.io/lecode-official/comfyui-docker:latest
-    container_name: comfyui
+    container_name: comfyui-local-ai
     networks: ['local-ai-network']
     runtime: nvidia
     environment:
@@ -199,7 +200,7 @@ services:
         - RUNTIME=${TTS_RUNTIME:-nvidia}
       context: ./kitten-tts
       dockerfile: Dockerfile
-    container_name: kitten-tts
+    container_name: kitten-tts-local-ai
     ports:
       - "${TTS_PORT:-8005}:8005"
     networks: ['local-ai-network']
