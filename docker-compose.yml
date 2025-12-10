@@ -6,12 +6,12 @@ volumes:
   hf_cache:
 
 networks:
-  local-ai-network: 
+  local-bridge: 
     external: true
 
 x-n8n: &service-n8n
   image: n8nio/n8n:latest
-  networks: ['local-ai-network']
+  networks: ['local-bridge']
   environment:
     - DB_TYPE=postgresdb
     - DB_POSTGRESDB_HOST=postgres
@@ -29,7 +29,8 @@ x-n8n: &service-n8n
 
 x-ollama: &service-ollama
   image: ollama/ollama:latest
-  networks: ['local-ai-network']
+  container_name: ollama
+  networks: ['local-bridge']
   restart: unless-stopped
   ports:
     - 11434:11434
@@ -40,27 +41,25 @@ x-ollama: &service-ollama
 
 x-init-ollama: &init-ollama
   image: ollama/ollama:latest
-  networks: ['local-ai-network']
+  networks: ['local-bridge']
+  container_name: ollama-pull-llama
   volumes:
     - ollama_storage:/root/.ollama
   entrypoint: /bin/sh
+  environment:
+    - OLLAMA_HOST=ollama:11434
   command:
     - "-c"
-    - "sleep 3; ollama pull llama3.2; ollama pull nomic-embed-text; ollama pull gemma3:latest"
+    - "sleep 3; ollama pull llama3.2; OLLAMA_HOST=ollama:11434 ollama pull nomic-embed-text; ollama pull gemma3:latest"
 
 services:
-  # ============================================================================
-  # N8N WORKFLOW AUTOMATION
-  # ============================================================================
   postgres:
-    profiles: ["n8n", "all", "all-gpu"]
     image: postgres:16-alpine
     hostname: postgres
-    container_name: postgres-local-ai
-    networks: ['local-ai-network']
+    networks: ['local-bridge']
     restart: unless-stopped
     ports:
-      - 5433:5432
+      - 5432:5432
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD
@@ -74,10 +73,9 @@ services:
       retries: 10
 
   n8n-import:
-    profiles: ["n8n", "all", "all-gpu"]
     <<: *service-n8n
     hostname: n8n-import
-    container_name: n8n-local-ai-import
+    container_name: n8n-import
     entrypoint: /bin/sh
     command:
       - "-c"
@@ -89,10 +87,9 @@ services:
         condition: service_healthy
 
   n8n:
-    profiles: ["n8n", "all", "all-gpu"]
     <<: *service-n8n
     hostname: n8n
-    container_name: n8n-local-ai
+    container_name: n8n
     restart: unless-stopped
     ports:
       - 5678:5678
@@ -107,103 +104,52 @@ services:
         condition: service_completed_successfully
 
   qdrant:
-    profiles: ["n8n", "all", "all-gpu"]
     image: qdrant/qdrant
     hostname: qdrant
-    container_name: qdrant-local-ai
-    networks: ['local-ai-network']
+    container_name: qdrant
+    networks: ['local-bridge']
     restart: unless-stopped
     ports:
       - 6333:6333
     volumes:
       - qdrant_storage:/qdrant/storage
 
-  # ============================================================================
-  # OLLAMA - LLM INFERENCE
-  # ============================================================================
-  ollama-gpu:
-    profiles: ["ollama-gpu", "all-gpu"]
-    <<: *service-ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-
-  ollama-pull-llama-gpu:
-    profiles: ["ollama-gpu", "all-gpu"]
-    <<: *init-ollama
-    depends_on:
-      - ollama-gpu
-
-  ollama-cpu:
-    profiles: ["ollama-cpu", "all"]
-    <<: *service-ollama
-
-  ollama-pull-llama-cpu:
-    profiles: ["ollama-cpu", "all"]
-    <<: *init-ollama
-    depends_on:
-      - ollama-cpu
-
-  # ============================================================================
-  # WHISPER - SPEECH TO TEXT
-  # ============================================================================
   whisper:
-    profiles: ["whisper", "all", "all-gpu"]
     build:
       context: ./whisper
       dockerfile: Dockerfile
-    container_name: whisper-local-ai
+    container_name: whisper
     ports:
       - "5001:5001"
-    networks: ['local-ai-network']
+    networks: ['local-bridge']
     environment:
       - WHISPER_HOST=whisper:5001
     restart: unless-stopped
 
-  # ============================================================================
-  # COMFYUI - IMAGE GENERATION
-  # ============================================================================
   comfyui:
-    profiles: ["comfyui", "all-gpu"]
-    image: ghcr.io/lecode-official/comfyui-docker:latest
-    container_name: comfyui-local-ai
-    networks: ['local-ai-network']
-    runtime: nvidia
+    image: lecode-official/comfyui-docker:latest
+    container_name: comfyui
+    networks: ['local-bridge']
     environment:
-      USER_ID: ${USER_ID:-1000}
-      GROUP_ID: ${GROUP_ID:-1000}
+      USER_ID: ${USER_ID}
+      GROUP_ID: ${GROUP_ID}
     volumes:
-      - ${COMFYUI_MODELS_PATH}:/opt/comfyui/models:rw
-      - ${COMFYUI_CUSTOM_NODES_PATH}:/opt/comfyui/custom_nodes:rw
+      - /c/Users/Max.van.Dop/Repositories/ComfyUI_windows_portable/ComfyUI/models:/opt/comfyui/models:rw
+      - /c/Users/Max.van.Dop/Repositories/ComfyUI_windows_portable/ComfyUI/custom_nodes:/opt/comfyui/custom_nodes:rw
     ports:
       - "8188:8188"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     restart: unless-stopped
 
-  # ============================================================================
-  # KITTEN TTS - TEXT TO SPEECH
-  # ============================================================================
   kitten-tts-server:
-    profiles: ["tts", "all-gpu"]
     build:
       args:
-        - RUNTIME=${TTS_RUNTIME:-nvidia}
+        - RUNTIME=nvidia
       context: ./kitten-tts
       dockerfile: Dockerfile
-    container_name: kitten-tts-local-ai
+    container_name: kitten-tts-server
     ports:
-      - "${TTS_PORT:-8005}:8005"
-    networks: ['local-ai-network']
+      - "${PORT:-8005}:8005"
+    networks: ['local-bridge']
     volumes:
       - ./kitten-tts/config.yaml:/app/config.yaml
       - ./kitten-tts/outputs:/app/outputs
@@ -221,4 +167,31 @@ services:
       - HF_HUB_ENABLE_HF_TRANSFER=1
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-      - KITTEN_HOST=kitten-tts:8005
+      - KITTEN_HOST=kitten:8005
+
+  ollama-gpu:
+    profiles: ["gpu-nvidia", "all-gpu"]
+    <<: *service-ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ollama-pull-llama-gpu:
+    profiles: ["gpu-nvidia", "all-gpu"]
+    <<: *init-ollama
+    depends_on:
+      - ollama-gpu
+
+  ollama-cpu:
+    profiles: ["cpu"]
+    <<: *service-ollama
+
+  ollama-pull-llama-cpu:
+    profiles: ["cpu"]
+    <<: *init-ollama
+    depends_on:
+      - ollama-cpu
