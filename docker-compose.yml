@@ -127,15 +127,15 @@ services:
     restart: unless-stopped
 
   comfyui:
-    image: lecode-official/comfyui-docker:latest
+    image: yanwk/comfyui-boot:latest
     container_name: comfyui
     networks: ['local-bridge']
     environment:
       USER_ID: ${USER_ID}
       GROUP_ID: ${GROUP_ID}
     volumes:
-      - /c/Users/Max.van.Dop/Repositories/ComfyUI_windows_portable/ComfyUI/models:/opt/comfyui/models:rw
-      - /c/Users/Max.van.Dop/Repositories/ComfyUI_windows_portable/ComfyUI/custom_nodes:/opt/comfyui/custom_nodes:rw
+      - /c/Users/Max.van.Dop/Repositories/models:rw
+      - /c/Users/Max.van.Dop/Repositories/custom_nodes:rw
     ports:
       - "8188:8188"
     restart: unless-stopped
