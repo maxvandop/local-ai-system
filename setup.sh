@@ -7,8 +7,7 @@ mkdir -p n8n/demo-data/credentials
 mkdir -p n8n/demo-data/workflows
 mkdir -p shared
 mkdir -p whisper
-mkdir -p kitten-tts/outputs
-mkdir -p kitten-tts/logs
+mkdir -p coqui-tts
 echo "✓ Directories created"
 
 # Download Whisper files from local-whisper repo
@@ -29,30 +28,8 @@ if [ ! -f whisper/.gitignore ]; then
 fi
 echo "✓ Whisper service setup complete"
 
-# Create Kitten-TTS Dockerfile (skip if exists)
-if [ ! -f kitten-tts/Dockerfile ]; then
-    echo "📝 Creating Kitten-TTS Dockerfile..."
-    cat > kitten-tts/Dockerfile << 'EOF'
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Install TTS dependencies
-RUN pip install --no-cache-dir TTS flask
-
-# Copy application code into the container
-COPY . .
-
-# Expose port
-EXPOSE 8005
-
-# Run the TTS service
-CMD ["python", "app.py"]
-EOF
-    echo "✓ Kitten-TTS Dockerfile created"
-else
-    echo "✓ Kitten-TTS Dockerfile already exists"
-fi
+# Note: Coqui TTS uses official Docker images, no setup needed
+echo "✓ Coqui TTS will use official ghcr.io image"
 
 # Check if .env file exists
 if [ ! -f .env ]; then
@@ -81,8 +58,9 @@ OLLAMA_HOST=ollama:11434
 USER_ID=1000
 GROUP_ID=1000
 
-# Kitten TTS Configuration
-PORT=8005
+# Coqui TTS Configuration
+TTS_MODEL=tts_models/en/ljspeech/tacotron2-DDC
+TTS_PORT=5002
 EOF
     
     echo "✓ .env file created with generated keys"
@@ -105,7 +83,8 @@ else
     grep -q "^OLLAMA_HOST=" .env || MISSING_VARS+=("OLLAMA_HOST=ollama:11434")
     grep -q "^USER_ID=" .env || MISSING_VARS+=("USER_ID=1000")
     grep -q "^GROUP_ID=" .env || MISSING_VARS+=("GROUP_ID=1000")
-    grep -q "^PORT=" .env || MISSING_VARS+=("PORT=8005")
+    grep -q "^TTS_MODEL=" .env || MISSING_VARS+=("TTS_MODEL=tts_models/en/ljspeech/tacotron2-DDC")
+    grep -q "^TTS_PORT=" .env || MISSING_VARS+=("TTS_PORT=5002")
     
     if [ ${#MISSING_VARS[@]} -gt 0 ]; then
         echo "⚠️  Adding missing variables to .env file:"
@@ -137,7 +116,7 @@ echo "  - PostgreSQL (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)"
 echo "  - n8n (N8N_ENCRYPTION_KEY, N8N_USER_MANAGEMENT_JWT_SECRET, WEBHOOK_URL)"
 echo "  - Ollama (OLLAMA_HOST)"
 echo "  - ComfyUI (USER_ID, GROUP_ID)"
-echo "  - Kitten TTS (PORT)"
+echo "  - Coqui TTS (TTS_MODEL, TTS_PORT)"
 echo ""
 echo "📄 Dockerfiles created:"
 echo "  - whisper/Dockerfile"
@@ -154,4 +133,4 @@ echo "  - Qdrant: http://localhost:6333"
 echo "  - Ollama: http://localhost:11434"
 echo "  - Whisper: http://localhost:5001"
 echo "  - ComfyUI: http://localhost:8188"
-echo "  - Kitten TTS: http://localhost:8005"
+echo "  - Coqui TTS: http://localhost:5002"

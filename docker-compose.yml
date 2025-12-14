@@ -3,7 +3,6 @@ volumes:
   postgres_storage:
   ollama_storage:
   qdrant_storage:
-  hf_cache:
 
 networks:
   local-bridge: 
@@ -150,21 +149,19 @@ services:
               capabilities: [gpu]
     restart: on-failure:5
 
-  kitten-tts-server:
-    build:
-      args:
-        - RUNTIME=nvidia
-      context: ./kitten-tts
-      dockerfile: Dockerfile
-    container_name: kitten-tts-server
-    ports:
-      - "${PORT:-8005}:8005"
+  coqui-tts:
+    image: ghcr.io/coqui-ai/tts:latest
+    container_name: coqui-tts
     networks: ['local-bridge']
-    volumes:
-      - ./kitten-tts/config.yaml:/app/config.yaml
-      - ./kitten-tts/outputs:/app/outputs
-      - ./kitten-tts/logs:/app/logs
-      - hf_cache:/app/hf_cache
+    ports:
+      - "${TTS_PORT:-5002}:5002"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    entrypoint: /bin/bash
+    command:
+      - "-c"
+      - "python3 TTS/server/server.py --model_name ${TTS_MODEL:-tts_models/en/ljspeech/tacotron2-DDC} --use_cuda true"
     deploy:
       resources:
         reservations:
@@ -173,11 +170,6 @@ services:
               count: 1
               capabilities: [gpu]
     restart: on-failure:5
-    environment:
-      - HF_HUB_ENABLE_HF_TRANSFER=1
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-      - KITTEN_HOST=kitten:8005
 
   ollama-gpu:
     profiles: ["gpu-nvidia", "all-gpu"]
