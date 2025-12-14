@@ -11,6 +11,45 @@ mkdir -p kitten-tts/outputs
 mkdir -p kitten-tts/logs
 echo "✓ Directories created"
 
+# Download Whisper files from local-whisper repo
+echo "📝 Setting up Whisper service..."
+if [ ! -f whisper/api_server.py ]; then
+    echo "  Downloading api_server.py..."
+    curl -sSL https://raw.githubusercontent.com/maxvandop/local-whisper/main/api_server.py -o whisper/api_server.py
+fi
+
+if [ ! -f whisper/Dockerfile ]; then
+    echo "  Downloading Dockerfile..."
+    curl -sSL https://raw.githubusercontent.com/maxvandop/local-whisper/main/dockerfile -o whisper/Dockerfile
+fi
+
+if [ ! -f whisper/.gitignore ]; then
+    echo "  Downloading .gitignore..."
+    curl -sSL https://raw.githubusercontent.com/maxvandop/local-whisper/main/.gitignore -o whisper/.gitignore
+fi
+echo "✓ Whisper service setup complete"
+
+# Create Kitten-TTS Dockerfile
+echo "📝 Creating Kitten-TTS Dockerfile..."
+cat > kitten-tts/Dockerfile << 'EOF'
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install TTS dependencies
+RUN pip install --no-cache-dir TTS flask
+
+# Copy application code into the container
+COPY . .
+
+# Expose port
+EXPOSE 8005
+
+# Run the TTS service
+CMD ["python", "app.py"]
+EOF
+echo "✓ Kitten-TTS Dockerfile created"
+
 # Check if .env file exists
 if [ ! -f .env ]; then
     echo "📝 Creating .env file..."
@@ -95,6 +134,10 @@ echo "  - n8n (N8N_ENCRYPTION_KEY, N8N_USER_MANAGEMENT_JWT_SECRET, WEBHOOK_URL)"
 echo "  - Ollama (OLLAMA_HOST)"
 echo "  - ComfyUI (USER_ID, GROUP_ID)"
 echo "  - Kitten TTS (PORT)"
+echo ""
+echo "📄 Dockerfiles created:"
+echo "  - whisper/Dockerfile"
+echo "  - kitten-tts/Dockerfile"
 echo ""
 echo "To start the system:"
 echo "  For GPU: docker-compose --profile all-gpu up -d"

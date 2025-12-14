@@ -5,8 +5,11 @@ WORKDIR /app
 # Install TTS dependencies
 RUN pip install --no-cache-dir TTS flask
 
+# Copy application code into the container
+COPY . .
+
 # Expose port
 EXPOSE 8005
 
-# Your TTS service code here
+# Run the TTS service
 CMD ["python", "app.py"]
