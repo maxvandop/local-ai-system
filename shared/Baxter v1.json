@@ -1,0 +1,1874 @@
+{
+  "name": "Baxter v1",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {
+          "download": true
+        }
+      },
+      "id": "60ac6d31-82e4-4895-95fd-8c62a635b81b",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "position": [
+        80,
+        416
+      ],
+      "webhookId": "5ecca1a2-488b-4ecb-9227-7283aa601b8d",
+      "typeVersion": 1.2,
+      "alwaysOutputData": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "YNCakv0XOjB1WLX8",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $('Telegram Trigger').item.json.message.voice.file_id }}",
+        "additionalFields": {}
+      },
+      "id": "9a8e1386-d472-4c2c-9f44-f0d8df6d02e0",
+      "name": "Get Voice File",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        1296,
+        512
+      ],
+      "webhookId": "f53d1f07-adb9-4ee8-a5ff-26bd17038cf0",
+      "typeVersion": 1.1,
+      "credentials": {
+        "telegramApi": {
+          "id": "YNCakv0XOjB1WLX8",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3f22a586-7d56-4168-8bfe-7bb42d556fc9",
+                    "leftValue": "={{ $json.chatInput }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "chat"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "a2d6691c-beed-44d8-a67f-be43b28155df",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    },
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": ""
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "6ce5f222-d555-470b-862d-e132b9a5fb72",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    },
+                    "leftValue": "={{ $json.message.voice.file_id }}",
+                    "rightValue": ""
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "voice"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f258d1ef-fcab-420a-a7a9-61b7f80cec5d",
+      "name": "Message Type Switch",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        880,
+        304
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "d2e36e10-3ffc-47ab-bf1a-3c9639b0106a",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.message.from.id }}",
+              "rightValue": 8497733638
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2507b938-0a44-44f6-838a-6ccc33e27d24",
+      "name": "Authorization Check If",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        304,
+        416
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "chatId": "={{ json.message.from.id }}",
+        "text": "I am sorry, you have no access to my services.",
+        "additionalFields": {}
+      },
+      "id": "4355f058-2648-408f-ac1b-1b350b6aed10",
+      "name": "Send a text message",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        528,
+        528
+      ],
+      "webhookId": "d669815c-1907-472c-a6aa-a2783853642c",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YNCakv0XOjB1WLX8",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://whisper:5001/transcribe",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "multipart/form-data"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "=audio_file",
+              "inputDataFieldName": "=data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6035caa1-9b21-4401-a92f-5499b536b95d",
+      "name": "Whisper ASR HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1488,
+        512
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{$json.output}}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "6bce3f08-cebf-4b45-9b5c-0cf098afbd96",
+      "name": "Send a text message1",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        5360,
+        272
+      ],
+      "webhookId": "3711915e-e974-4fb7-ad40-4403538c1ba1",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YNCakv0XOjB1WLX8",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen3:latest",
+        "options": {}
+      },
+      "id": "f476f17a-2be8-4573-a862-ae32162d3060",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "position": [
+        3376,
+        992
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=$key",
+        "contextWindowLength": 2
+      },
+      "id": "80e6b57c-bd5b-40f3-b6e8-f8014d68e04d",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        3536,
+        992
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "content": "## Transcription\nTranscribe audio locally with Whisper API"
+      },
+      "id": "a2fcd43b-828b-472e-9a88-2c0f7b66b927",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1344,
+        720
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "action": "generate",
+        "dataPropertyName": "key"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        528,
+        320
+      ],
+      "id": "3bbb3cc7-278c-43af-8043-ef6aa329e7c8",
+      "name": "Crypto"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://kitten-tts-server:8005/tts",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"{{$json.output}}\",\n  \"voice\": \"expr-voice-3-m\",\n  \"output_format\": \"opus\",\n  \"split_text\": true,\n  \"chunk_size\": 200,\n  \"speed\": 1.29,\n  \"language\": \"English\"\n}",
+        "options": {}
+      },
+      "id": "212803fc-b3f5-4c6f-a2d5-38a3d8106d13",
+      "name": "Kitten TTS HTTP Request1",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        5168,
+        480
+      ],
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5473125d-e83d-449a-9693-548ededda3d2",
+                    "leftValue": "={{ $('Chat_Input').isExecuted}}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "chat"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a2d6691c-beed-44d8-a67f-be43b28155df",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "leftValue": "={{ $('Text_Input').isExecuted}}",
+                    "rightValue": ""
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c1fefba4-93b4-4885-b7ca-c974ceec5e4e",
+                    "leftValue": "={{ $('Audio_Input').isExecuted}}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Voice"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "469e9b50-712c-49bf-85f5-a25d49309383",
+      "name": "Message Type Switch1",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        4352,
+        256
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "operation": "sendAudio",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "binaryData": true,
+        "binaryPropertyName": "=data",
+        "replyMarkup": "=none",
+        "forceReply": {},
+        "replyKeyboardOptions": {},
+        "replyKeyboardRemove": {},
+        "additionalFields": {
+          "fileName": "={{ $binary.data.fileName }}",
+          "reply_to_message_id": "={{ $('Telegram Trigger').item.json.message.message_id }}"
+        }
+      },
+      "id": "9b789d4e-36b0-4dd6-b765-79aa55e371c1",
+      "name": "Send an audio file1",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        5360,
+        480
+      ],
+      "webhookId": "3711915e-e974-4fb7-ad40-4403538c1ba1",
+      "typeVersion": 1.2,
+      "alwaysOutputData": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "YNCakv0XOjB1WLX8",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "Processing request...",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "87a323ff-8675-47c9-84f6-afd5f88d75e7",
+      "name": "Log1",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        1696,
+        512
+      ],
+      "webhookId": "3711915e-e974-4fb7-ad40-4403538c1ba1",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YNCakv0XOjB1WLX8",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "Creating response...",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "fd9047c9-df2c-4f4b-a51e-69b0f476d1b8",
+      "name": "Log2",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        4768,
+        480
+      ],
+      "webhookId": "3711915e-e974-4fb7-ad40-4403538c1ba1",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YNCakv0XOjB1WLX8",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "Transcribing audio...",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "d3925895-ae44-4395-ac1e-2a510b450158",
+      "name": "Log",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        1104,
+        512
+      ],
+      "webhookId": "3711915e-e974-4fb7-ad40-4403538c1ba1",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YNCakv0XOjB1WLX8",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $('Whisper ASR HTTP Request').first().json.text\n\nreturn {input}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1904,
+        512
+      ],
+      "id": "7f3d0383-7d37-4ab8-98ec-00f249133018",
+      "name": "Audio_Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "let output = $input.first().json.output\n\nreturn {output}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4976,
+        272
+      ],
+      "id": "cd402c27-4715-4a19-8520-3746fbc84470",
+      "name": "Text_Output"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "ConversationHistory",
+          "mode": "list",
+          "cachedResultName": "ConversationHistory"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        4240,
+        976
+      ],
+      "id": "b04f3484-acd9-4e1c-a25a-111c30080039",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "sFfERYppMeBnFNeA",
+          "name": "Local QdrantApi database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Chat history of our previous conversations",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "ConversationHistory",
+          "mode": "list",
+          "cachedResultName": "ConversationHistory"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        3744,
+        992
+      ],
+      "id": "031d2ff5-12ef-4491-abd2-3f9600a3eff5",
+      "name": "Qdrant Vector Store1",
+      "credentials": {
+        "qdrantApi": {
+          "id": "sFfERYppMeBnFNeA",
+          "name": "Local QdrantApi database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        3744,
+        1216
+      ],
+      "id": "74954698-36f1-4691-9ad6-de71a9103d9b",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        4240,
+        1216
+      ],
+      "id": "8a364051-f242-4b49-a2ca-d61449e5cf84",
+      "name": "Embeddings Ollama1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        4432,
+        1216
+      ],
+      "id": "3240f2b7-1fe9-426c-9e48-dc501527e06c",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "content": "## Vectorize\nVectorize conversation and retrieve from history"
+      },
+      "id": "1fe1602f-0586-46c8-ae35-d766ec7ab991",
+      "name": "Sticky Note6",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        3904,
+        1184
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Audio answer \nSend back a Voiceclip to telegram using TTS"
+      },
+      "id": "1537c54d-6802-4427-9cec-db5ea0270b66",
+      "name": "Sticky Note7",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        5104,
+        688
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Text answer\nSend back a text massage to telegram"
+      },
+      "id": "61d9b963-f338-47fe-a9bd-84796726d8e9",
+      "name": "Sticky Note8",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        5216,
+        96
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        512,
+        96
+      ],
+      "id": "4c2f4220-ea70-4f40-9654-53b513e6a841",
+      "name": "When chat message received",
+      "webhookId": "feec4ed1-560a-4c35-8152-36f8b488c4ec"
+    },
+    {
+      "parameters": {
+        "jsCode": "let output = $input.first().json.output\n\nreturn {output}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4976,
+        96
+      ],
+      "id": "79360171-e48c-4103-9230-4c662621bddf",
+      "name": "Text_Output1"
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $input.first().json.input\n\nreturn {input}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        320
+      ],
+      "id": "c45f3cd3-578a-4882-bc80-febbccb6bd19",
+      "name": "Agent_Input"
+    },
+    {
+      "parameters": {
+        "model": "qwen3:0.6b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        2448,
+        528
+      ],
+      "id": "2c61691c-4177-4609-a0d7-43d278171c26",
+      "name": "Ollama Chat Model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Action types\n- Test message\n- Short reply\n- In-depth answer / analysis\n- Tool usage\n- Assignment (async)\n  - Go Get Data (+store)\n  - Go Create (+report back)\n\n",
+        "height": 336,
+        "width": 400
+      },
+      "id": "ed2d4ae0-5625-4183-96fd-5a622825a9e4",
+      "name": "Sticky Note10",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2672,
+        -192
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $('Telegram Trigger').first().json.message.text\n\nreturn {input}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1904,
+        320
+      ],
+      "id": "50e5ae61-0275-44f0-8359-149cfadece7b",
+      "name": "Text_Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $input.first().json.chatInput\n\nreturn {input}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1904,
+        128
+      ],
+      "id": "43d90fdd-d619-4021-827c-02e57c84baee",
+      "name": "Chat_Input"
+    },
+    {
+      "parameters": {
+        "model": "qwen3:0.6b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        3536,
+        496
+      ],
+      "id": "59c8be6a-3420-4b40-8b56-d20598078354",
+      "name": "Ollama Chat Model2",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=$key",
+        "contextWindowLength": 2
+      },
+      "id": "58b8cec0-b067-42c9-ac8e-9b8901bd1c4d",
+      "name": "Simple Memory1",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        3712,
+        496
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=I need you to interpret the input fast and only give me back which of the following array objects fits most \n[factual_answer, short_answer, long_answer, tool_use, test, assignment, command, job]\nMy input: '{{$json.input}}'.\nOnly answer the array value, you must pick 1.\n",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "id": "5fbb4ae2-fefd-4b3b-ae9f-b9f84df2551f",
+      "name": "AI Request Devider",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        2448,
+        320
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are my personal ai assistant called Baxter. I need a quick answer for this simple request\nMy request: '{{ $('Agent_Input').item.json.input }}'.",
+        "options": {}
+      },
+      "id": "3d27522b-8f7f-460b-aede-e09f7c43fc31",
+      "name": "AI Agent Simple",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        3616,
+        272
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are my personal ai assistant called Baxter. Check our chat history to see if you can find missing information, but only if it makes sense. Otherwise try to figure it out for yourself.\nMy input: '{{ $('Agent_Input').item.json.input }}'.\nYour Answer: ",
+        "options": {}
+      },
+      "id": "8dce296d-4991-42a0-a87f-bb00a1f6e2d1",
+      "name": "AI Agent Extended",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        3616,
+        688
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const extractFinalArrayValue = () => {\n    // Revised Regular Expression:\n    // This regex captures the category name whether it is wrapped in brackets or not.\n    // (?:\\[)?         - Non-capturing group: Optionally match the opening bracket (\\[)\n    // ([a-zA-Z_]+)    - Capturing group 1: Matches one or more letters/underscores (the category name)\n    // (?:\\])?         - Non-capturing group: Optionally match the closing bracket (\\])\n    // \\s*$            - Matches optional whitespace at the end ($)\n    const regex = /(?:\\[)?([a-zA-Z_]+)(?:\\])?\\s*$/; \n\n    // Retrieve the input string\n    const inputString = $input.first().json.output;\n\n    const match = inputString.match(regex);\n    \n    // Get the extracted value, or a default string if not found\n    const extractedValue = match ? match[1] : 'Value_Not_Found'; \n\n    // **********************************************\n    // THE CRITICAL CHANGE FOR n8n: \n    // Return the result as an array containing a single object.\n    // **********************************************\n    return [{\n        json: {\n            extractedValue: extractedValue\n        }\n    }];\n};\n\n// Execute the main function and return the structured data array\nreturn extractFinalArrayValue();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2832,
+        320
+      ],
+      "id": "fe1c1dd7-72d0-45f7-862c-9b4601cc6e0d",
+      "name": "Devider_Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "let output = $input.first().json.output\n\nreturn {output}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4144,
+        272
+      ],
+      "id": "7ae25694-2079-42af-9f16-c136374562c0",
+      "name": "Agent_Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "const cleanOutput = () => {\n    // 1. Get the input string from the correct, nested path\n    const input = $('Agent_Output').first().json.output; \n\n    // **ADD A NULL CHECK HERE to prevent future errors**\n    if (!input || typeof input !== 'string') {\n        // If the input is missing or not a string, return the original data \n        // or a clear error message in the output\n        return [{\n            json: {\n                output: 'Error: Input data not found at the expected path.'\n            }\n        }];\n    }\n\n    // 2. Regular Expression for removal (no change needed here)\n    // ... rest of the code remains the same ...\n    const regex = /<\\s*\\/?\\s*think\\s*[^>]*>.*?<\\s*\\/?\\s*think\\s*[^>]*>|&lt;\\s*\\/?\\s*think\\s*[^&gt;]*&gt;.*?&lt;\\s*\\/?\\s*think\\s*[^&gt;]*&gt;/gis;\n\n    // 3. Perform the replacement\n    let output = input.replace(regex, '').trim();\n\n    // Remove emojis\n    output = output.replace(/[\\p{Emoji_Presentation}\\p{Symbol}\\p{Punctuation}]/gu, '').trim();\n    // Remove markdown\n    output = output.replace(/(\\*\\*|__|\\*|_|#|`|\\[.*?\\]\\(.*?\\))/g, '').trim();\n    output = output.replace(/&lt;\\/?\\w+&gt;/g, '').trim();\n    output = output.replace(/[\\n\\s]+/g, ' ').trim(); \n\n    output = output.replace(/\"/g, '').trim();\n\n    // 4. Return the result in n8n's required JSON format\n    return [{\n        json: {\n            output: output\n        }\n    }];\n};\n\nreturn cleanOutput();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4976,
+        480
+      ],
+      "id": "965297f4-6662-4de4-8250-de9dfb07fca3",
+      "name": "Sanitized text"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5c3047c0-2a48-4b6d-b7b7-a32ccf1172e1",
+                    "leftValue": "={{ $json.extractedValue }}",
+                    "rightValue": "command",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "command"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3df361ca-5df3-41df-8b13-383c44d07245",
+                    "leftValue": "={{ $json.extractedValue }}",
+                    "rightValue": "assignment",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "assignment"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f8e0a72a-c281-41c0-b90e-3e19588fa0f7",
+                    "leftValue": "={{ $json.extractedValue }}",
+                    "rightValue": "job",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "job"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5473125d-e83d-449a-9693-548ededda3d2",
+                    "leftValue": "={{ $json.extractedValue }}",
+                    "rightValue": "short_answer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "short_answer"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "52255f7a-94a8-49d8-8fdf-1c47b9118d71",
+                    "leftValue": "={{ $json.extractedValue }}",
+                    "rightValue": "factual_answer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "factual_answer"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "50843a13-d3d1-4548-b2c3-6b4084843ba6",
+                    "leftValue": "={{ $json.extractedValue }}",
+                    "rightValue": "test",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "test"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cb400f9b-e02c-4306-bfee-1929aa377e93",
+                    "leftValue": "={{ $json.extractedValue }}",
+                    "rightValue": "long_answer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "long_answer"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "890d7b26-b1fe-4d66-8b5b-51b001d698c8",
+      "name": "Action Switch",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        3056,
+        240
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "content": "[factual_answer, short_answer, long_answer, tool_use, test, assignment, command, job]",
+        "height": 80,
+        "width": 448
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2336,
+        192
+      ],
+      "typeVersion": 1,
+      "id": "d7e63a36-020c-44c7-bbdc-e0fc7a5ca49c",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.input }}",
+        "options": {
+          "systemMessage": "=I need a detailed text prompt that will create a realistic image based on the input from the user. Form your inspiration idea with the following structure: Subject+Scene+Action. If no style has been requested, make it foto realistic.\n\nYour response must be only reply only the text prompt as plain text, do not answer me additional content or get me a question, the prompt structure are writing in 1 paragraph , natural English. "
+        }
+      },
+      "id": "fd7ee295-2b88-4b77-b745-9bfb0d07a59e",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        3840,
+        -448
+      ]
+    },
+    {
+      "parameters": {
+        "workflow": "={{ $json.output }}"
+      },
+      "type": "n8n-nodes-comfyui.comfyui",
+      "typeVersion": 1,
+      "position": [
+        4448,
+        -448
+      ],
+      "id": "febafe6d-58e1-4883-83a9-7852259e24a2",
+      "name": "ComfyUI",
+      "credentials": {
+        "comfyUIApi": {
+          "id": "dqT7GB7RIZXkIz9O",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let workflow = JSON.stringify({\n  \"3\": {\n    \"inputs\": {\n      \"seed\": 377619280699284,\n      \"steps\": 30,\n      \"cfg\": 8,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"normal\",\n      \"denoise\": 1,\n      \"model\": [\n        \"4\",\n        0\n      ],\n      \"positive\": [\n        \"6\",\n        0\n      ],\n      \"negative\": [\n        \"7\",\n        0\n      ],\n      \"latent_image\": [\n        \"5\",\n        0\n      ]\n    },\n    \"class_type\": \"KSampler\",\n    \"_meta\": {\n      \"title\": \"KSampler\"\n    }\n  },\n  \"4\": {\n    \"inputs\": {\n      \"ckpt_name\": \"v1-5-pruned.safetensors\"\n    },\n    \"class_type\": \"CheckpointLoaderSimple\",\n    \"_meta\": {\n      \"title\": \"Load Checkpoint\"\n    }\n  },\n  \"5\": {\n    \"inputs\": {\n      \"width\": 512,\n      \"height\": 512,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptyLatentImage\",\n    \"_meta\": {\n      \"title\": \"Empty Latent Image\"\n    }\n  },\n  \"6\": {\n    \"inputs\": {\n      \"text\": [\n        \"12\",\n        0\n      ],\n      \"clip\": [\n        \"4\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Prompt)\"\n    }\n  },\n  \"7\": {\n    \"inputs\": {\n      \"text\": \"text, watermark\",\n      \"clip\": [\n        \"4\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Prompt)\"\n    }\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\n        \"3\",\n        0\n      ],\n      \"vae\": [\n        \"4\",\n        2\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"VAE Decode\"\n    }\n  },\n  \"10\": {\n    \"inputs\": {},\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"VAE Decode\"\n    }\n  },\n  \"11\": {\n    \"inputs\": {\n      \"images\": [\n        \"8\",\n        0\n      ]\n    },\n    \"class_type\": \"PreviewImage\",\n    \"_meta\": {\n      \"title\": \"Preview Image\"\n    }\n  },\n  \"12\": {\n    \"inputs\": {\n      \"text\": \"$$wf_input$$\"\n    },\n    \"class_type\": \"ttN text\",\n    \"_meta\": {\n      \"title\": \"text\"\n    }\n  }\n})\n\nlet prompt = $input.first().json.output\n\nlet output = workflow.replace('$$wf_input$$', prompt)\n\nreturn {output}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4224,
+        -448
+      ],
+      "id": "b144dc4b-1072-49bf-a7f4-6c4741e9e6da",
+      "name": "Prepare_WF"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        3744,
+        -176
+      ],
+      "id": "ac78750e-94b7-4f09-9cb9-e5ab9fae53ff",
+      "name": "Ollama Chat Model3",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $('Agent_Input').first().json.input\n\nreturn {input}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3568,
+        -448
+      ],
+      "id": "ddbc4a57-3def-4493-b259-9861dca8c8ac",
+      "name": "Media Input"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=$key",
+        "contextWindowLength": 2
+      },
+      "id": "0b8887c2-d6c1-48bb-8378-37f3d24175c8",
+      "name": "Simple Memory2",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        3936,
+        -176
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "binaryData": true,
+        "binaryPropertyName": "={{ $json.data }}",
+        "additionalFields": {
+          "fileName": "={{ $json.filename }}"
+        }
+      },
+      "id": "5e82e8c7-0e2b-496f-985c-3e06ab12a6f0",
+      "name": "Send a photo message",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        5104,
+        -448
+      ],
+      "webhookId": "3711915e-e974-4fb7-ad40-4403538c1ba1",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "YNCakv0XOjB1WLX8",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "data",
+        "binaryPropertyName": "={{ $json.data }}",
+        "options": {
+          "fileName": "ComfyUI_temp_ffhbd_00001_.png",
+          "mimeType": "image/png"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        4768,
+        -720
+      ],
+      "id": "208e3762-1296-4d73-b2e7-8b8f50d30038",
+      "name": "Convert to File"
+    }
+  ],
+  "pinData": {
+    "Telegram Trigger": [
+      {
+        "json": {
+          "update_id": 657475563,
+          "message": {
+            "message_id": 698,
+            "from": {
+              "id": 8497733638,
+              "is_bot": false,
+              "first_name": "Max",
+              "last_name": "van Dop",
+              "language_code": "en"
+            },
+            "chat": {
+              "id": 8497733638,
+              "first_name": "Max",
+              "last_name": "van Dop",
+              "type": "private"
+            },
+            "date": 1763505999,
+            "forward_origin": {
+              "type": "user",
+              "sender_user": {
+                "id": 8497733638,
+                "is_bot": false,
+                "first_name": "Max",
+                "last_name": "van Dop",
+                "language_code": "en"
+              },
+              "date": 1763504998
+            },
+            "forward_from": {
+              "id": 8497733638,
+              "is_bot": false,
+              "first_name": "Max",
+              "last_name": "van Dop",
+              "language_code": "en"
+            },
+            "forward_date": 1763504998,
+            "text": "Go create an image of the sea!"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent Extended",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Voice File": {
+      "main": [
+        [
+          {
+            "node": "Whisper ASR HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Authorization Check If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Extended",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message Type Switch": {
+      "main": [
+        [
+          {
+            "node": "Chat_Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text_Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorization Check If": {
+      "main": [
+        [
+          {
+            "node": "Crypto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Whisper ASR HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Log1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crypto": {
+      "main": [
+        [
+          {
+            "node": "Message Type Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kitten TTS HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Send an audio file1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message Type Switch1": {
+      "main": [
+        [
+          {
+            "node": "Text_Output1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text_Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message1": {
+      "main": [
+        []
+      ]
+    },
+    "Log1": {
+      "main": [
+        [
+          {
+            "node": "Audio_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log2": {
+      "main": [
+        [
+          {
+            "node": "Sanitized text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log": {
+      "main": [
+        [
+          {
+            "node": "Get Voice File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio_Input": {
+      "main": [
+        [
+          {
+            "node": "Agent_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text_Output": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Extended",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Message Type Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent_Input": {
+      "main": [
+        [
+          {
+            "node": "AI Request Devider",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Request Devider",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text_Input": {
+      "main": [
+        [
+          {
+            "node": "Agent_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat_Input": {
+      "main": [
+        [
+          {
+            "node": "Agent_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Simple",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent Simple",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Request Devider": {
+      "main": [
+        [
+          {
+            "node": "Devider_Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Simple": {
+      "main": [
+        [
+          {
+            "node": "Agent_Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Extended": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Agent_Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Devider_Output": {
+      "main": [
+        [
+          {
+            "node": "Action Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent_Output": {
+      "main": [
+        [
+          {
+            "node": "Message Type Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitized text": {
+      "main": [
+        [
+          {
+            "node": "Kitten TTS HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action Switch": {
+      "main": [
+        [
+          {
+            "node": "Media Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Media Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Media Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent Simple",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent Simple",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent Simple",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent Extended",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Prepare_WF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI": {
+      "main": [
+        [
+          {
+            "node": "Send a photo message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare_WF": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Media Input": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory2": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send a photo message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 600,
+    "executionOrder": "v1",
+    "timezone": "Europe/Brussels"
+  },
+  "versionId": "e941c3ca-f2cf-4eba-beba-c75e3ce53a61",
+  "meta": {
+    "templateId": "6012",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "0qPEq9SACp3c7mdY",
+  "tags": []
+}

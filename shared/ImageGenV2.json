@@ -1,0 +1,255 @@
+{
+  "name": "ImageGenV2",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "dd9d4636-ce0e-4c2e-a5e8-c791a13cf49e",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -192,
+        0
+      ],
+      "webhookId": "a889d2ae-2159-402f-b326-5f61e90f602e"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=You are the top art director; I need some inspiration to create stunning images using Flux.\n\nI need the text prompt from your inspiration idea with the following structure: Subject+Scene+Action \nYour response must be only reply only the text prompt as plain text, do not answer me additional content or get me a question, the prompt structure are writing in 1 paragraph , natural English. \n\nHere is the instruction:\nThe subject includes humans, animals, or any imagined subject\nThe scene includes the environment in which the subject is located, including the foreground and background, and can be a real scene or an imagined fictional scene\nActions include the movement state of the subject or non subject, which can be small, large, delicate, or partial movements, or overall movements."
+        }
+      },
+      "id": "6b62f60d-dbc3-4b5d-91a2-f9f02fc0b4bc",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "47d66960-2779-4290-a2bf-95fd8cc6ad7b",
+      "name": "Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        320,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "workflow": "={{ $json.output }}"
+      },
+      "type": "n8n-nodes-comfyui.comfyui",
+      "typeVersion": 1,
+      "position": [
+        832,
+        0
+      ],
+      "id": "94dae3b5-905e-4640-955e-32f681508949",
+      "name": "ComfyUI",
+      "credentials": {
+        "comfyUIApi": {
+          "id": "dqT7GB7RIZXkIz9O",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "data",
+        "binaryPropertyName": "={{ $json.data }}",
+        "options": {
+          "fileName": "ComfyUI_temp_ffhbd_00001_.png",
+          "mimeType": "image/png"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        0
+      ],
+      "id": "15665455-7817-4e57-a9d8-7d7ff56e5358",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        128,
+        272
+      ],
+      "id": "1d8e7f4a-433a-484b-a56e-ef1254ac6219",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let workflow = JSON.stringify({\n  \"3\": {\n    \"inputs\": {\n      \"seed\": 377619280699284,\n      \"steps\": 30,\n      \"cfg\": 8,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"normal\",\n      \"denoise\": 1,\n      \"model\": [\n        \"4\",\n        0\n      ],\n      \"positive\": [\n        \"6\",\n        0\n      ],\n      \"negative\": [\n        \"7\",\n        0\n      ],\n      \"latent_image\": [\n        \"5\",\n        0\n      ]\n    },\n    \"class_type\": \"KSampler\",\n    \"_meta\": {\n      \"title\": \"KSampler\"\n    }\n  },\n  \"4\": {\n    \"inputs\": {\n      \"ckpt_name\": \"v1-5-pruned.safetensors\"\n    },\n    \"class_type\": \"CheckpointLoaderSimple\",\n    \"_meta\": {\n      \"title\": \"Load Checkpoint\"\n    }\n  },\n  \"5\": {\n    \"inputs\": {\n      \"width\": 512,\n      \"height\": 512,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptyLatentImage\",\n    \"_meta\": {\n      \"title\": \"Empty Latent Image\"\n    }\n  },\n  \"6\": {\n    \"inputs\": {\n      \"text\": [\n        \"12\",\n        0\n      ],\n      \"clip\": [\n        \"4\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Prompt)\"\n    }\n  },\n  \"7\": {\n    \"inputs\": {\n      \"text\": \"text, watermark\",\n      \"clip\": [\n        \"4\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Prompt)\"\n    }\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\n        \"3\",\n        0\n      ],\n      \"vae\": [\n        \"4\",\n        2\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"VAE Decode\"\n    }\n  },\n  \"10\": {\n    \"inputs\": {},\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"VAE Decode\"\n    }\n  },\n  \"11\": {\n    \"inputs\": {\n      \"images\": [\n        \"8\",\n        0\n      ]\n    },\n    \"class_type\": \"PreviewImage\",\n    \"_meta\": {\n      \"title\": \"Preview Image\"\n    }\n  },\n  \"12\": {\n    \"inputs\": {\n      \"text\": \"$$wf_input$$\"\n    },\n    \"class_type\": \"ttN text\",\n    \"_meta\": {\n      \"title\": \"text\"\n    }\n  }\n})\n\nlet prompt = $input.first().json.output\n\nlet output = workflow.replace('$$wf_input$$', prompt)\n\nreturn {output}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        0
+      ],
+      "id": "a2f9018c-b35e-4db0-a4a0-b299af530c33",
+      "name": "Prepare_WF"
+    },
+    {
+      "parameters": {
+        "workflow": "={\n  \"3\": {\n    \"inputs\": {\n      \"seed\": 377619280699284,\n      \"steps\": 30,\n      \"cfg\": 8,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"normal\",\n      \"denoise\": 1,\n      \"model\": [\n        \"4\",\n        0\n      ],\n      \"positive\": [\n        \"6\",\n        0\n      ],\n      \"negative\": [\n        \"7\",\n        0\n      ],\n      \"latent_image\": [\n        \"5\",\n        0\n      ]\n    },\n    \"class_type\": \"KSampler\",\n    \"_meta\": {\n      \"title\": \"KSampler\"\n    }\n  },\n  \"4\": {\n    \"inputs\": {\n      \"ckpt_name\": \"realismByStableYogi_v40FP16.safetensors\"\n    },\n    \"class_type\": \"CheckpointLoaderSimple\",\n    \"_meta\": {\n      \"title\": \"Load Checkpoint\"\n    }\n  },\n  \"5\": {\n    \"inputs\": {\n      \"width\": 512,\n      \"height\": 512,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptyLatentImage\",\n    \"_meta\": {\n      \"title\": \"Empty Latent Image\"\n    }\n  },\n  \"6\": {\n    \"inputs\": {\n      \"text\": [\n        \"12\",\n        0\n      ],\n      \"clip\": [\n        \"4\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Prompt)\"\n    }\n  },\n  \"7\": {\n    \"inputs\": {\n      \"text\": \"text, watermark\",\n      \"clip\": [\n        \"4\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Prompt)\"\n    }\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\n        \"3\",\n        0\n      ],\n      \"vae\": [\n        \"4\",\n        2\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"VAE Decode\"\n    }\n  },\n  \"10\": {\n    \"inputs\": {},\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"VAE Decode\"\n    }\n  },\n  \"11\": {\n    \"inputs\": {\n      \"images\": [\n        \"8\",\n        0\n      ]\n    },\n    \"class_type\": \"PreviewImage\",\n    \"_meta\": {\n      \"title\": \"Preview Image\"\n    }\n  },\n  \"12\": {\n    \"inputs\": {\n      \"text\": \"{{ $json.output }}\"\n    },\n    \"class_type\": \"ttN text\",\n    \"_meta\": {\n      \"title\": \"text\"\n    }\n  }\n}"
+      },
+      "type": "n8n-nodes-comfyui.comfyui",
+      "typeVersion": 1,
+      "position": [
+        832,
+        272
+      ],
+      "id": "b6a0288f-33a6-4388-bf1c-13a3f7fd4eb4",
+      "name": "ComfyUI1",
+      "credentials": {
+        "comfyUIApi": {
+          "id": "dqT7GB7RIZXkIz9O",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "data",
+        "binaryPropertyName": "={{ $json.data }}",
+        "options": {
+          "fileName": "ComfyUI_temp_ffhbd_00001_.png",
+          "mimeType": "image/png"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        272
+      ],
+      "id": "e93d8f3f-96ea-4e5a-bb04-855a9c3df19d",
+      "name": "Convert to File1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        []
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Prepare_WF",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ComfyUI1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare_WF": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f62caab7-f4e2-4197-bc30-1e7a205c141f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "MNCxhGrHJB1uD2ow",
+  "tags": []
+}
