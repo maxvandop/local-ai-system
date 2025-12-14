@@ -31,7 +31,7 @@ x-ollama: &service-ollama
   image: ollama/ollama:latest
   container_name: ollama
   networks: ['local-bridge']
-  restart: unless-stopped
+  restart: on-failure:5
   ports:
     - 11434:11434
   volumes:
@@ -57,7 +57,7 @@ services:
     image: postgres:16-alpine
     hostname: postgres
     networks: ['local-bridge']
-    restart: unless-stopped
+    restart: on-failure:5
     ports:
       - 5432:5432
     environment:
@@ -90,7 +90,7 @@ services:
     <<: *service-n8n
     hostname: n8n
     container_name: n8n
-    restart: unless-stopped
+    restart: on-failure:5
     ports:
       - 5678:5678
     volumes:
@@ -108,7 +108,7 @@ services:
     hostname: qdrant
     container_name: qdrant
     networks: ['local-bridge']
-    restart: unless-stopped
+    restart: on-failure:5
     ports:
       - 6333:6333
     volumes:
@@ -124,21 +124,31 @@ services:
     networks: ['local-bridge']
     environment:
       - WHISPER_HOST=whisper:5001
-    restart: unless-stopped
+    restart: on-failure:5
 
   comfyui:
-    image: yanwk/comfyui-boot:latest
+    image: yanwk/comfyui-boot:cu128-megapak
     container_name: comfyui
     networks: ['local-bridge']
     environment:
-      USER_ID: ${USER_ID}
-      GROUP_ID: ${GROUP_ID}
+      - USER_ID=${USER_ID:-1000}
+      - GROUP_ID=${GROUP_ID:-1000}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     volumes:
-      - /c/Users/Max.van.Dop/Repositories/models:rw
-      - /c/Users/Max.van.Dop/Repositories/custom_nodes:rw
+      # Windows paths converted to WSL2 format
+      - /mnt/c/Users/maxva/Models:/opt/comfyui/models:rw
+      - /mnt/c/Users/maxva/CustomNodes:/opt/comfyui/custom_nodes:rw
     ports:
       - "8188:8188"
-    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: on-failure:5
 
   kitten-tts-server:
     build:
@@ -162,7 +172,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    restart: unless-stopped
+    restart: on-failure:5
     environment:
       - HF_HUB_ENABLE_HF_TRANSFER=1
       - NVIDIA_VISIBLE_DEVICES=all
