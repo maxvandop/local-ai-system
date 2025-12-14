@@ -29,9 +29,10 @@ if [ ! -f whisper/.gitignore ]; then
 fi
 echo "✓ Whisper service setup complete"
 
-# Create Kitten-TTS Dockerfile
-echo "📝 Creating Kitten-TTS Dockerfile..."
-cat > kitten-tts/Dockerfile << 'EOF'
+# Create Kitten-TTS Dockerfile (skip if exists)
+if [ ! -f kitten-tts/Dockerfile ]; then
+    echo "📝 Creating Kitten-TTS Dockerfile..."
+    cat > kitten-tts/Dockerfile << 'EOF'
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -48,7 +49,10 @@ EXPOSE 8005
 # Run the TTS service
 CMD ["python", "app.py"]
 EOF
-echo "✓ Kitten-TTS Dockerfile created"
+    echo "✓ Kitten-TTS Dockerfile created"
+else
+    echo "✓ Kitten-TTS Dockerfile already exists"
+fi
 
 # Check if .env file exists
 if [ ! -f .env ]; then
