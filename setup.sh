@@ -7,7 +7,6 @@ mkdir -p n8n/demo-data/credentials
 mkdir -p n8n/demo-data/workflows
 mkdir -p shared
 mkdir -p whisper
-mkdir -p coqui-tts
 echo "✓ Directories created"
 
 # Download Whisper files from local-whisper repo
@@ -28,8 +27,8 @@ if [ ! -f whisper/.gitignore ]; then
 fi
 echo "✓ Whisper service setup complete"
 
-# Note: Coqui TTS uses official Docker images, no setup needed
-echo "✓ Coqui TTS will use official ghcr.io image"
+# Note: Kokoro-FastAPI uses official Docker images, no setup needed
+echo "✓ Kokoro-FastAPI will use official ghcr.io image"
 
 # Check if .env file exists
 if [ ! -f .env ]; then
@@ -58,9 +57,9 @@ OLLAMA_HOST=ollama:11434
 USER_ID=1000
 GROUP_ID=1000
 
-# Coqui TTS Configuration
-TTS_MODEL=tts_models/en/ljspeech/tacotron2-DDC
-TTS_PORT=5002
+# Kokoro TTS Configuration
+KOKORO_PORT=8880
+KOKORO_MODEL=kokoro-v0_19
 EOF
     
     echo "✓ .env file created with generated keys"
@@ -83,8 +82,8 @@ else
     grep -q "^OLLAMA_HOST=" .env || MISSING_VARS+=("OLLAMA_HOST=ollama:11434")
     grep -q "^USER_ID=" .env || MISSING_VARS+=("USER_ID=1000")
     grep -q "^GROUP_ID=" .env || MISSING_VARS+=("GROUP_ID=1000")
-    grep -q "^TTS_MODEL=" .env || MISSING_VARS+=("TTS_MODEL=tts_models/en/ljspeech/tacotron2-DDC")
-    grep -q "^TTS_PORT=" .env || MISSING_VARS+=("TTS_PORT=5002")
+    grep -q "^KOKORO_PORT=" .env || MISSING_VARS+=("KOKORO_PORT=8880")
+    grep -q "^KOKORO_MODEL=" .env || MISSING_VARS+=("KOKORO_MODEL=kokoro-v0_19")
     
     if [ ${#MISSING_VARS[@]} -gt 0 ]; then
         echo "⚠️  Adding missing variables to .env file:"
@@ -116,7 +115,7 @@ echo "  - PostgreSQL (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)"
 echo "  - n8n (N8N_ENCRYPTION_KEY, N8N_USER_MANAGEMENT_JWT_SECRET, WEBHOOK_URL)"
 echo "  - Ollama (OLLAMA_HOST)"
 echo "  - ComfyUI (USER_ID, GROUP_ID)"
-echo "  - Coqui TTS (TTS_MODEL, TTS_PORT)"
+echo "  - Kokoro TTS (KOKORO_PORT, KOKORO_MODEL)"
 echo ""
 echo "📄 Dockerfiles created:"
 echo "  - whisper/Dockerfile"
@@ -133,4 +132,4 @@ echo "  - Qdrant: http://localhost:6333"
 echo "  - Ollama: http://localhost:11434"
 echo "  - Whisper: http://localhost:5001"
 echo "  - ComfyUI: http://localhost:8188"
-echo "  - Coqui TTS: http://localhost:5002"
+echo "  - Kokoro TTS: http://localhost:8880"

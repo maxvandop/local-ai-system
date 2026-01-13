@@ -100,7 +100,7 @@ services:
       postgres:
         condition: service_healthy
       n8n-import:
-        condition: service_completed_successfully
+        condition: service_started
 
   qdrant:
     image: qdrant/qdrant
@@ -128,40 +128,27 @@ services:
   comfyui:
     image: yanwk/comfyui-boot:cu128-megapak
     container_name: comfyui
+    hostname: comfyui
     networks: ['local-bridge']
+    profiles: ["comfyui", "all-gpu"]  # Added profile assignment
     environment:
-      - USER_ID=${USER_ID:-1000}
-      - GROUP_ID=${GROUP_ID:-1000}
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    volumes:
-      # Windows paths converted to WSL2 format
-      - /mnt/c/Users/maxva/Models:/opt/comfyui/models:rw
-      - /mnt/c/Users/maxva/CustomNodes:/opt/comfyui/custom_nodes:rw
-    ports:
-      - "8188:8188"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    restart: on-failure:5
+    - USER_ID=${USER_ID:-1000}
+    - GROUP_ID=${GROUP_ID:-1000}
+    - NVIDIA_VISIBLE_DEVICES=all
+    - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    - CLI_ARGS=--reserve-vram 4 --force-fp16
 
-  coqui-tts:
-    image: ghcr.io/coqui-ai/tts:latest
-    container_name: coqui-tts
-    networks: ['local-bridge']
+    volumes:
+     # Main storage for ComfyUI (contains custom_nodes, workflows, etc)
+    - ./comfyui_storage:/root
+    # Primary models directory - this is your existing models folder
+    - C:/Users/maxva/Models:/root/ComfyUI/models:rw
+    # Optional: mount custom nodes if you have them
+    # - /mnt/c/Users/maxva/CustomNodes:/opt/comfyui/custom_nodes:rw
+    # Optional: persist outputs locally
+    - ./comfyui_outputs:/opt/comfyui/output:rw
     ports:
-      - "${TTS_PORT:-5002}:5002"
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    entrypoint: /bin/bash
-    command:
-      - "-c"
-      - "python3 TTS/server/server.py --model_name ${TTS_MODEL:-tts_models/en/ljspeech/tacotron2-DDC} --use_cuda true"
+    - "8188:8188"
     deploy:
       resources:
         reservations:
@@ -169,6 +156,19 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+        limits:
+          memory: 24G  # Give plenty of RAM headroom
+    restart: on-failure:5
+    shm_size: '16gb'
+
+  kokoro-tts:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
+    container_name: kokoro-tts
+    networks: ['local-bridge']
+    ports:
+      - "${KOKORO_PORT:-8880}:8880"
+    environment:
+      - MODEL_NAME=${KOKORO_MODEL:-kokoro-v0_19}
     restart: on-failure:5
 
   ollama-gpu:

@@ -1,0 +1,45 @@
+# Docker storage volumes
+comfyui_storage/
+n8n_storage/
+postgres_storage/
+ollama_storage/
+qdrant_storage/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Hugging Face cache
+hf_cache/
+
+# Model outputs
+outputs/
+
+# ComfyUI specific
+ComfyUI/models/
+ComfyUI/output/
+ComfyUI/temp/
+ComfyUI/input/
+
