@@ -136,17 +136,13 @@ services:
     - GROUP_ID=${GROUP_ID:-1000}
     - NVIDIA_VISIBLE_DEVICES=all
     - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    - CLI_ARGS=--reserve-vram 4 --force-fp16
-
+    - CLI_ARGS=--normalvram --reserve-vram 1.5 --force-fp16 --bf16-vae #--disable-xformers --use-pytorch-cross-attention
+    #- PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:256,garbage_collection_threshold:0.8,expandable_segments:True
     volumes:
      # Main storage for ComfyUI (contains custom_nodes, workflows, etc)
     - ./comfyui_storage:/root
     # Primary models directory - this is your existing models folder
     - C:/Users/maxva/Models:/root/ComfyUI/models:rw
-    # Optional: mount custom nodes if you have them
-    # - /mnt/c/Users/maxva/CustomNodes:/opt/comfyui/custom_nodes:rw
-    # Optional: persist outputs locally
-    - ./comfyui_outputs:/opt/comfyui/output:rw
     ports:
     - "8188:8188"
     deploy:
@@ -157,9 +153,12 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 24G  # Give plenty of RAM headroom
+          memory: 20gb
     restart: on-failure:5
-    shm_size: '16gb'
+    shm_size: '10gb'
+    #mem_limit: '12gb'
+    #memswap_limit: 36g
+    #shm_size: 16gb
 
   kokoro-tts:
     image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2

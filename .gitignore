@@ -1,5 +1,4 @@
 # Docker storage volumes
-comfyui_storage/
 n8n_storage/
 postgres_storage/
 ollama_storage/
@@ -43,3 +42,8 @@ ComfyUI/output/
 ComfyUI/temp/
 ComfyUI/input/
 
+# ComfyUI cache
+!comfyui_storage/
+comfyui_storage/*
+!comfyui_storage/custom_nodes
+!comfyui_storage/user
