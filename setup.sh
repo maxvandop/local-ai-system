@@ -7,6 +7,7 @@ mkdir -p n8n/demo-data/credentials
 mkdir -p n8n/demo-data/workflows
 mkdir -p shared
 mkdir -p whisper
+mkdir -p postgres_storage
 echo "✓ Directories created"
 
 # Download Whisper files from local-whisper repo
