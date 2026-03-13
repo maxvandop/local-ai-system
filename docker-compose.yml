@@ -22,6 +22,11 @@ x-n8n: &service-n8n
     - N8N_USER_MANAGEMENT_JWT_SECRET
     - WEBHOOK_URL
     - OLLAMA_HOST=${OLLAMA_HOST:-ollama:11434}
+    - N8N_PATH=/
+    - N8N_HOST=techanist.eu
+    - N8N_EDITOR_BASE_URL=https://techanist.eu
+    - N8N_PROTOCOL=https
+    - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
   env_file:
     - path: .env
       required: true
@@ -161,15 +166,22 @@ services:
     #memswap_limit: 36g
     #shm_size: 16gb
 
-  kokoro-tts:
-    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
-    container_name: kokoro-tts
+  qwen-tts:
+    build:
+      context: ./qwen-tts
+      dockerfile: Dockerfile
+    container_name: qwen-tts
     networks: ['local-bridge']
     ports:
-      - "${KOKORO_PORT:-8880}:8880"
-    environment:
-      - MODEL_NAME=${KOKORO_MODEL:-kokoro-v0_19}
+      - "8881:8881"
     restart: on-failure:5
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   ollama-gpu:
     profiles: ["gpu-nvidia", "all-gpu"]

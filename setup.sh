@@ -1,178 +1,189 @@
 #!/bin/bash
+# =============================================================================
+# Baxter v2 — Setup Script
+# Run once after cloning the repo, safe to re-run at any time.
+# =============================================================================
 
 set -e
+
+echo ""
+echo "╔══════════════════════════════════════════╗"
+echo "║          Baxter v2 — Setup               ║"
+echo "╚══════════════════════════════════════════╝"
+echo ""
+
+# ─── 1. Directory structure ──────────────────────────────────────────────────
 
 echo "📁 Creating directory structure..."
 mkdir -p n8n/demo-data/credentials
 mkdir -p n8n/demo-data/workflows
+mkdir -p postgres_init
+mkdir -p postgres_storage
 mkdir -p shared
 mkdir -p whisper
-mkdir -p postgres_storage
-mkdir -p postgres_init
-echo "✓ Directories created"
+mkdir -p qwen-tts
+echo "✓ Directories ready"
 
-# Create pgvector initialization script
-echo "📝 Creating PostgreSQL initialization script..."
-cat > postgres_init/01-init-pgvector.sql << 'EOF'
--- Install pgvector extension
-CREATE EXTENSION IF NOT EXISTS vector;
+# ─── 2. Database init script ─────────────────────────────────────────────────
+# baxter_init.sql is the single source of truth for all Baxter tables.
+# Postgres automatically runs every *.sql file in /docker-entrypoint-initdb.d/
+# on first container boot. For existing installs, step 6 applies it manually.
 
--- Create chat history vector store table
-CREATE TABLE IF NOT EXISTS chat_history_vectors (
-    id SERIAL PRIMARY KEY,
-    content TEXT,
-    metadata JSONB,
-    embedding vector(1536),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+echo ""
+echo "📝 Copying database init script..."
+if [ -f "baxter_init.sql" ]; then
+    cp baxter_init.sql postgres_init/baxter_init.sql
+    echo "✓ baxter_init.sql copied to postgres_init/"
+else
+    echo "⚠️  baxter_init.sql not found in the repo root."
+    echo "   Make sure it is committed alongside setup.sh and re-run."
+    exit 1
+fi
 
--- Create global knowledge base vector store table
-CREATE TABLE IF NOT EXISTS knowledge_base_vectors (
-    id SERIAL PRIMARY KEY,
-    content TEXT,
-    metadata JSONB,
-    embedding vector(1536),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+# ─── 3. Whisper service files ────────────────────────────────────────────────
 
--- Create indexes for similarity search
-CREATE INDEX IF NOT EXISTS chat_history_embedding_idx 
-ON chat_history_vectors USING ivfflat (embedding vector_cosine_ops);
-
-CREATE INDEX IF NOT EXISTS knowledge_base_embedding_idx 
-ON knowledge_base_vectors USING ivfflat (embedding vector_cosine_ops);
-
--- Create indexes on timestamps for efficient querying
-CREATE INDEX IF NOT EXISTS chat_history_created_at_idx 
-ON chat_history_vectors (created_at DESC);
-
-CREATE INDEX IF NOT EXISTS knowledge_base_updated_at_idx 
-ON knowledge_base_vectors (updated_at DESC);
-EOF
-echo "✓ PostgreSQL initialization script created"
-
-# Download Whisper files from local-whisper repo
+echo ""
 echo "📝 Setting up Whisper service..."
 if [ ! -f whisper/api_server.py ]; then
     echo "  Downloading api_server.py..."
-    curl -sSL https://raw.githubusercontent.com/maxvandop/local-whisper/main/api_server.py -o whisper/api_server.py
+    curl -sSL https://raw.githubusercontent.com/maxvandop/local-whisper/main/api_server.py \
+        -o whisper/api_server.py
 fi
-
 if [ ! -f whisper/Dockerfile ]; then
     echo "  Downloading Dockerfile..."
-    curl -sSL https://raw.githubusercontent.com/maxvandop/local-whisper/main/dockerfile -o whisper/Dockerfile
+    curl -sSL https://raw.githubusercontent.com/maxvandop/local-whisper/main/dockerfile \
+        -o whisper/Dockerfile
 fi
-
 if [ ! -f whisper/.gitignore ]; then
     echo "  Downloading .gitignore..."
-    curl -sSL https://raw.githubusercontent.com/maxvandop/local-whisper/main/.gitignore -o whisper/.gitignore
+    curl -sSL https://raw.githubusercontent.com/maxvandop/local-whisper/main/.gitignore \
+        -o whisper/.gitignore
 fi
-echo "✓ Whisper service setup complete"
+echo "✓ Whisper service ready"
 
-# Note: Kokoro-FastAPI uses official Docker images, no setup needed
-echo "✓ Kokoro-FastAPI will use official ghcr.io image"
+# ─── 4. Environment file ─────────────────────────────────────────────────────
 
-# Check if .env file exists
+echo ""
 if [ ! -f .env ]; then
-    echo "📝 Creating .env file..."
-    
-    # Generate random keys
+    echo "📝 Generating .env file..."
+
     N8N_ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)
     N8N_JWT_SECRET=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)
     POSTGRES_PASSWORD=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)
-    
+
     cat > .env << EOF
-# PostgreSQL Configuration
+# ── PostgreSQL ────────────────────────────────────────────
 POSTGRES_USER=n8n
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 POSTGRES_DB=n8n
 
-# n8n Configuration
+# ── n8n ──────────────────────────────────────────────────
 N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
 N8N_USER_MANAGEMENT_JWT_SECRET=${N8N_JWT_SECRET}
 WEBHOOK_URL=http://localhost:5678/
 
-# Ollama Configuration
+# ── Ollama ────────────────────────────────────────────────
 OLLAMA_HOST=ollama:11434
 
-# ComfyUI Configuration
+# ── ComfyUI (GPU image generation, optional) ─────────────
 USER_ID=1000
 GROUP_ID=1000
-
-# Kokoro TTS Configuration
-KOKORO_PORT=8880
-KOKORO_MODEL=kokoro-v0_19
 EOF
-    
-    echo "✓ .env file created with generated keys"
-    echo "⚠️  IMPORTANT: Back up your .env file! The encryption keys cannot be regenerated."
+
+    echo "✓ .env created with generated keys"
+    echo "⚠️  IMPORTANT: Back up your .env — these keys cannot be regenerated."
+
 else
-    echo "✓ .env file already exists"
-    
-    # Check if required variables are present and add missing ones
-    echo "🔍 Checking for missing environment variables..."
-    
+    echo "🔍 .env exists — checking for missing variables..."
+
     MISSING_VARS=()
-    
-    # Check each required variable
-    grep -q "^POSTGRES_USER=" .env || MISSING_VARS+=("POSTGRES_USER=n8n")
-    grep -q "^POSTGRES_PASSWORD=" .env || MISSING_VARS+=("POSTGRES_PASSWORD=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)")
-    grep -q "^POSTGRES_DB=" .env || MISSING_VARS+=("POSTGRES_DB=n8n")
-    grep -q "^N8N_ENCRYPTION_KEY=" .env || MISSING_VARS+=("N8N_ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)")
-    grep -q "^N8N_USER_MANAGEMENT_JWT_SECRET=" .env || MISSING_VARS+=("N8N_USER_MANAGEMENT_JWT_SECRET=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)")
-    grep -q "^WEBHOOK_URL=" .env || MISSING_VARS+=("WEBHOOK_URL=http://localhost:5678/")
-    grep -q "^OLLAMA_HOST=" .env || MISSING_VARS+=("OLLAMA_HOST=ollama:11434")
-    grep -q "^USER_ID=" .env || MISSING_VARS+=("USER_ID=1000")
-    grep -q "^GROUP_ID=" .env || MISSING_VARS+=("GROUP_ID=1000")
-    grep -q "^KOKORO_PORT=" .env || MISSING_VARS+=("KOKORO_PORT=8880")
-    grep -q "^KOKORO_MODEL=" .env || MISSING_VARS+=("KOKORO_MODEL=kokoro-v0_19")
-    
+    grep -q "^POSTGRES_USER="                   .env || MISSING_VARS+=("POSTGRES_USER=n8n")
+    grep -q "^POSTGRES_PASSWORD="               .env || MISSING_VARS+=("POSTGRES_PASSWORD=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)")
+    grep -q "^POSTGRES_DB="                     .env || MISSING_VARS+=("POSTGRES_DB=n8n")
+    grep -q "^N8N_ENCRYPTION_KEY="              .env || MISSING_VARS+=("N8N_ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)")
+    grep -q "^N8N_USER_MANAGEMENT_JWT_SECRET="  .env || MISSING_VARS+=("N8N_USER_MANAGEMENT_JWT_SECRET=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)")
+    grep -q "^WEBHOOK_URL="                     .env || MISSING_VARS+=("WEBHOOK_URL=http://localhost:5678/")
+    grep -q "^OLLAMA_HOST="                     .env || MISSING_VARS+=("OLLAMA_HOST=ollama:11434")
+    grep -q "^USER_ID="                         .env || MISSING_VARS+=("USER_ID=1000")
+    grep -q "^GROUP_ID="                        .env || MISSING_VARS+=("GROUP_ID=1000")
+
     if [ ${#MISSING_VARS[@]} -gt 0 ]; then
-        echo "⚠️  Adding missing variables to .env file:"
+        echo "  Adding missing variables:"
         for var in "${MISSING_VARS[@]}"; do
-            echo "  + $var"
+            echo "    + $var"
             echo "$var" >> .env
         done
-        echo "✓ Missing variables added"
+        echo "✓ .env updated"
     else
         echo "✓ All required variables present"
     fi
 fi
 
-# Check Docker network
-echo "🔧 Checking Docker network..."
-if docker network inspect local-bridge >/dev/null 2>&1; then
-    echo "✓ Docker network 'local-bridge' already exists"
-else
-    echo "Creating Docker network 'local-bridge'..."
-    docker network create local-bridge
-    echo "✓ Docker network created"
-fi
+# ─── 5. Docker network ───────────────────────────────────────────────────────
 
 echo ""
-echo "✅ Setup complete!"
+echo "🔧 Checking Docker network..."
+if docker network inspect local-bridge >/dev/null 2>&1; then
+    echo "✓ Network 'local-bridge' already exists"
+else
+    docker network create local-bridge
+    echo "✓ Network 'local-bridge' created"
+fi
+
+# ─── 6. Apply database schema ────────────────────────────────────────────────
+# If Postgres is already running (re-run scenario), apply baxter_init.sql now.
+# On a fresh install this is a no-op — Postgres hasn't started yet and the
+# file in postgres_init/ will be picked up automatically on first boot.
+
 echo ""
-echo "📋 Environment variables configured:"
-echo "  - PostgreSQL (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)"
-echo "  - n8n (N8N_ENCRYPTION_KEY, N8N_USER_MANAGEMENT_JWT_SECRET, WEBHOOK_URL)"
-echo "  - Ollama (OLLAMA_HOST)"
-echo "  - ComfyUI (USER_ID, GROUP_ID)"
-echo "  - Kokoro TTS (KOKORO_PORT, KOKORO_MODEL)"
+echo "🗄️  Applying database schema..."
+
+source .env
+
+if docker ps --format '{{.Names}}' | grep -q "^postgres$"; then
+    echo "  Postgres container is running — applying schema now..."
+    docker exec -i postgres psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+        < postgres_init/baxter_init.sql \
+        && echo "✓ Schema applied successfully" \
+        || echo "⚠️  Schema apply failed — check the output above for errors"
+else
+    echo "  Postgres not running yet — schema will be applied automatically on first boot"
+    echo "  To apply manually later:"
+    echo "    docker exec -i postgres psql -U \$POSTGRES_USER -d \$POSTGRES_DB < postgres_init/baxter_init.sql"
+fi
+
+# ─── Done ────────────────────────────────────────────────────────────────────
+
 echo ""
-echo "📄 Dockerfiles created:"
-echo "  - whisper/Dockerfile"
-echo "  - kitten-tts/Dockerfile"
+echo "╔══════════════════════════════════════════╗"
+echo "║           Setup complete  ✅             ║"
+echo "╚══════════════════════════════════════════╝"
 echo ""
-echo "To start the system:"
-echo "  For GPU: docker-compose --profile all-gpu up -d"
-echo "  For CPU: docker-compose --profile cpu up -d"
+echo "Next steps:"
 echo ""
-echo "Services will be available at:"
-echo "  - n8n: http://localhost:5678"
-echo "  - PostgreSQL: localhost:5432"
-echo "  - Qdrant: http://localhost:6333"
-echo "  - Ollama: http://localhost:11434"
-echo "  - Whisper: http://localhost:5001"
-echo "  - ComfyUI: http://localhost:8188"
-echo "  - Kokoro TTS: http://localhost:8880"
+echo "  1. Start services:"
+echo "       GPU:  docker compose --profile gpu-nvidia up -d"
+echo "       CPU:  docker compose --profile cpu up -d"
+echo ""
+echo "  2. Import workflows into n8n:"
+echo "       http://localhost:5678"
+echo ""
+echo "  3. Add credentials in n8n:"
+echo "       - Telegram API"
+echo "       - Google Calendar OAuth2"
+echo "       - Ollama  (http://ollama:11434)"
+echo "       - Qdrant  (http://qdrant:6333)"
+echo ""
+echo "  4. (Optional) Seed your profile to skip onboarding:"
+echo "       Uncomment the INSERT block in postgres_init/baxter_init.sql"
+echo "       then re-run:  bash setup.sh"
+echo ""
+echo "Services:"
+echo "  n8n        →  http://localhost:5678"
+echo "  Postgres   →  localhost:5432"
+echo "  Qdrant     →  http://localhost:6333"
+echo "  Ollama     →  http://localhost:11434"
+echo "  Whisper    →  http://localhost:5001"
+echo "  Qwen TTS   →  http://localhost:8881"
+echo "  ComfyUI    →  http://localhost:8188"
+echo ""
