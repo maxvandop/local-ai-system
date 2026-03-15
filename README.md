@@ -1,351 +1,331 @@
-# Local AI System
+# Baxter v2
 
-A comprehensive Docker-based local AI infrastructure combining workflow automation, LLM inference, speech processing, and image generation capabilities.
+A self-hosted, fully local personal AI assistant running on n8n. Baxter lives in Telegram, understands text and voice, manages your tasks and calendar, remembers who you are, and gets smarter over time — all without sending your data to any external AI service.
 
-## 🚀 Quick Start
+---
+
+## What Baxter can do
+
+- **Converse** via text or voice message in Telegram
+- **Remember** you — maintains a persistent profile (soul, user background, preferences, current focus) that shapes every response
+- **Manage tasks, subtasks and projects** — create, update, complete and query via natural language
+- **Set reminders** — fires Telegram alerts at the exact time you specify
+- **Read and write Google Calendar** — check today's schedule, create events, update or delete them
+- **Research** — web search via DuckDuckGo and Wikipedia lookups
+- **Check weather** — real-time conditions for any location
+- **Long-term memory** — conversation summaries are embedded and stored in Qdrant, retrieved semantically on every message
+- **Daily briefing** — 8am Telegram message with weather, calendar events, upcoming tasks and reminders
+- **Image generation** — optional ComfyUI integration
+
+---
+
+## Architecture
+
+Baxter is built as a pipeline of n8n workflows, each with a single responsibility:
+
+```
+Telegram / Chat
+      │
+      ▼
+a — Input               Auth check, message type routing, Whisper transcription
+      │
+      ▼
+b — Divider             Classifies request (short_answer / long_answer / tool_use / job)
+      │
+      ▼
+c — Orchestrator        Main agent — fetches user profile, builds system prompt,
+      │                 runs tools (ProjectManager, CalendarManager, ResearchAgent,
+      │                 LongTermMemory, ExecQuery, UpdateProfile)
+      ▼
+z — Communication       Routes response back as text or Qwen TTS voice audio
+```
+
+**Background workflows:**
+
+| Workflow | Schedule | Purpose |
+|----------|----------|---------|
+| ReminderHeartbeat | Every minute | Checks `reminders` table, fires due alerts via Telegram |
+| DailyBriefing | 08:00 daily | Sends weather + calendar + tasks + reminders summary |
+| DailyHistorySummarizer | Hourly | Summarises new `message_history` rows and ingests into Qdrant |
+
+---
+
+## Infrastructure
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **n8n** | 5678 | Workflow automation — the brain |
+| **Postgres** | 5432 | All structured data (messages, tasks, profile, reminders) |
+| **Qdrant** | 6333 | Vector store for long-term semantic memory |
+| **Ollama** | 11434 | Local LLM inference (qwen3.5:9b, llama3.2, nomic-embed-text) |
+| **Whisper** | 5001 | Speech-to-text for voice messages |
+| **Qwen TTS** | 8881 | Text-to-speech for voice responses |
+| **ComfyUI** | 8188 | Image generation (optional, GPU only) |
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Docker + Docker Compose
+- NVIDIA GPU recommended (CPU fallback available)
+- A Telegram bot token ([create one via BotFather](https://t.me/botfather))
+- A Google Cloud project with Calendar API enabled (for calendar features)
+
+### 1. Clone and run setup
 
 ```bash
-# 1. Clone the repository
 git clone <your-repo-url>
-cd local-ai-system
+cd baxter
 
-# 2. Run the setup script
 bash setup.sh
-
-# 3. Configure your environment
-cp .env.example .env
-# Edit .env with your settings
-
-# 4. Create the network
-docker network create local-bridge
-
-# 5. Start services (choose your profile)
-docker compose --profile all up -d
-docker compose --profile all-gpu up -d
 ```
 
-## 📦 Services Included
+`setup.sh` will:
+- Create the required directory structure
+- Copy `baxter_init.sql` into `postgres_init/` for automatic DB setup on first boot
+- Download Whisper service files
+- Generate a `.env` file with random secure keys
+- Create the `local-bridge` Docker network
+- Apply the database schema if Postgres is already running
 
-| Service | Port | Profile | Description |
-|---------|------|---------|-------------|
-| **N8N** | 5678 | `n8n` | Workflow automation platform |
-| **Postgres** | 5432 | `n8n` | Database for N8N |
-| **Qdrant** | 6333 | `n8n` | Vector database |
-| **Ollama** | 11434 | `ollama-cpu`/`ollama-gpu` | LLM inference engine |
-| **Whisper** | 5001 | `whisper` | Speech-to-text |
-| **ComfyUI** | 8188 | `comfyui` | Image generation UI |
-| **Kitten TTS** | 8005 | `tts` | Text-to-speech |
-
-## 🎯 Profile Usage
-
-Start only the services you need using profiles:
+### 2. Start services
 
 ```bash
-# N8N workflow automation only
-docker compose --profile n8n up -d
+# With NVIDIA GPU (recommended)
+docker compose --profile gpu-nvidia up -d
 
-# N8N + Ollama (CPU)
-docker compose --profile n8n --profile ollama-cpu up -d
+# CPU only
+docker compose --profile cpu up -d
 
-# Everything with GPU support
-docker compose --profile all-gpu up -d
-
-# Everything (CPU where applicable)
-docker compose --profile all up -d
-
-# Specific combinations
-docker compose --profile n8n --profile whisper --profile ollama-gpu up -d
+# Include ComfyUI (GPU required)
+docker compose --profile gpu-nvidia --profile comfyui up -d
 ```
 
-### Available Profiles
-
-- **`n8n`** - N8N, PostgreSQL, Qdrant
-- **`ollama-cpu`** - Ollama with CPU support
-- **`ollama-gpu`** - Ollama with NVIDIA GPU support
-- **`whisper`** - Whisper speech-to-text
-- **`comfyui`** - ComfyUI image generation (GPU)
-- **`tts`** - Kitten TTS text-to-speech (GPU)
-- **`all`** - All services (CPU fallbacks)
-- **`all-gpu`** - All services with GPU support
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-Copy `.env.example` to `.env` and configure:
+### 3. Pull Ollama models
 
 ```bash
-cp .env.example .env
+docker exec ollama ollama pull qwen3.5:9b
+docker exec ollama ollama pull llama3.2:3b
+docker exec ollama ollama pull nomic-embed-text
 ```
 
-**Required variables:**
-- `POSTGRES_USER` - PostgreSQL username
-- `POSTGRES_PASSWORD` - PostgreSQL password
-- `POSTGRES_DB` - Database name
-- `N8N_ENCRYPTION_KEY` - N8N encryption key (generate with `openssl rand -hex 32`)
-- `N8N_USER_MANAGEMENT_JWT_SECRET` - JWT secret (generate with `openssl rand -hex 32`)
+### 4. Import workflows into n8n
 
-**ComfyUI paths:**
-- `COMFYUI_MODELS_PATH` - Path to your ComfyUI models
-- `COMFYUI_CUSTOM_NODES_PATH` - Path to your custom nodes
+Open `http://localhost:5678`, then import each workflow JSON in this order:
 
-### Directory Structure
+1. `a-Baxter-v2-Input.json`
+2. `b-Baxter-v2-Divider.json`
+3. `c-Baxter-v2-Orchestrator.json`
+4. `z-Baxter-v2-Communication.json`
+5. `ReminderHeartbeat.json`
+6. `DailyBriefing.json`
+7. `DailyHistorySummarizer.json`
+
+### 5. Add credentials in n8n
+
+Go to **Settings → Credentials** and create:
+
+| Credential | Used by |
+|-----------|---------|
+| Telegram API | Input, Communication, ReminderHeartbeat, DailyBriefing |
+| Postgres | All workflows |
+| Ollama | Orchestrator, DailyHistorySummarizer |
+| Qdrant API | Orchestrator, DailyHistorySummarizer |
+| Google Calendar OAuth2 | Orchestrator (CalendarManager), DailyBriefing |
+
+For Google Calendar OAuth2 — always set it up through your public domain (e.g. `https://yourdomain.com`), not `localhost`, to avoid OAuth callback errors.
+
+### 6. Activate workflows
+
+Activate in this order (background workers first):
+
+1. ReminderHeartbeat
+2. DailyHistorySummarizer
+3. DailyBriefing
+4. a-Baxter-v2-Input (activates the Telegram webhook)
+5. b-Baxter-v2-Divider
+6. c-Baxter-v2-Orchestrator
+7. z-Baxter-v2-Communication
+
+### 7. First message
+
+Send any message to your Telegram bot. Baxter will walk through a short onboarding flow to set up its identity and learn about you. This only happens once — all answers are saved to the `user_profile` table and used in every subsequent conversation.
+
+To skip onboarding and seed your profile manually, uncomment the `INSERT` block in `baxter_init.sql` and re-run `bash setup.sh`.
+
+---
+
+## Database
+
+All tables are defined in `baxter_init.sql`. The file is idempotent — safe to run multiple times without affecting existing data.
+
+| Table | Purpose |
+|-------|---------|
+| `n8n_chat_histories` | Short-term rolling memory (n8n Postgres memory node) |
+| `message_history` | Structured log of every user↔Baxter exchange |
+| `baxter_memory_tracker` | Tracks last message ID ingested into Qdrant |
+| `user_profile` | Soul, personality, preferences, onboarding state |
+| `projects` | Top-level project containers |
+| `tasks` | Individual tasks, linked to projects |
+| `subtasks` | Child items of tasks |
+| `reminders` | Time-based Telegram alerts |
+
+To apply the schema manually to an already-running Postgres:
+
+```bash
+docker exec -i postgres psql -U $POSTGRES_USER -d $POSTGRES_DB < postgres_init/baxter_init.sql
+```
+
+---
+
+## Memory Architecture
+
+Baxter has two memory layers:
+
+**Short-term** — the last 2 conversation turns are kept in `n8n_chat_histories` via the n8n Postgres memory node, giving the agent immediate conversational context.
+
+**Long-term** — `DailyHistorySummarizer` runs hourly, takes all new rows from `message_history` since the last run, summarises them with `llama3.2:3b`, embeds the summary with `nomic-embed-text`, and upserts it into the `baxter_memory` Qdrant collection. The `baxter_memory_tracker` table records how far ingestion has reached. On every conversation turn, the Orchestrator queries Qdrant semantically and injects relevant past context into the agent.
+
+---
+
+## Environment Variables
+
+`setup.sh` generates these automatically. Edit `.env` to override:
+
+```bash
+# PostgreSQL
+POSTGRES_USER=n8n
+POSTGRES_PASSWORD=<generated>
+POSTGRES_DB=n8n
+
+# n8n
+N8N_ENCRYPTION_KEY=<generated>
+N8N_USER_MANAGEMENT_JWT_SECRET=<generated>
+WEBHOOK_URL=https://yourdomain.com/
+
+# Ollama
+OLLAMA_HOST=ollama:11434
+
+# ComfyUI (optional)
+USER_ID=1000
+GROUP_ID=1000
+```
+
+⚠️ Back up your `.env` — the `N8N_ENCRYPTION_KEY` encrypts all stored credentials. Losing it means losing access to all credentials stored in n8n.
+
+---
+
+## Directory Structure
 
 ```
-local-ai-system/
+baxter/
+├── setup.sh                  # Run once after cloning
+├── baxter_init.sql            # Single source of truth for all DB tables
 ├── docker-compose.yml
-├── .env
-├── README.md
+├── .env                       # Generated by setup.sh, never commit this
+├── postgres_init/
+│   └── baxter_init.sql        # Copied here by setup.sh for Docker auto-init
+├── postgres_storage/          # Postgres data volume (runtime, git-ignored)
 ├── n8n/
 │   └── demo-data/
 │       ├── credentials/
 │       └── workflows/
-├── whisper/
+├── whisper/                   # Downloaded by setup.sh
 │   └── Dockerfile
-├── kitten-tts/
-│   ├── Dockerfile
-│   ├── config.yaml
-│   ├── outputs/
-│   └── logs/
-├── comfyui/
-└── shared/
+├── qwen-tts/
+│   └── Dockerfile
+├── shared/                    # File exchange between host and n8n
+└── comfyui_storage/           # ComfyUI state (optional)
 ```
 
-## 🖥️ GPU Support
+---
 
-### NVIDIA GPU Requirements
-
-1. **Install NVIDIA Container Toolkit:**
-```bash
-# Ubuntu/Debian
-distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-
-sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-sudo systemctl restart docker
-```
-
-2. **Use GPU profiles:**
-```bash
-docker compose --profile ollama-gpu --profile tts --profile comfyui up -d
-```
-
-### Fallback to CPU
-
-If you don't have GPU support, use CPU profiles:
-```bash
-docker compose --profile ollama-cpu --profile n8n up -d
-```
-
-## 🔧 Common Commands
+## Common Commands
 
 ```bash
-# View running services
+# View running containers
 docker compose ps
 
-# View logs
-docker compose logs -f [service-name]
+# Follow logs for a specific service
+docker compose logs -f n8n
+docker compose logs -f ollama
 
-# Stop all services
-docker compose --profile all down
+# Restart a service
+docker compose restart n8n
 
-# Stop and remove volumes (⚠️ deletes data)
-docker compose --profile all down -v
+# Update all images
+docker compose --profile gpu-nvidia pull
+docker compose --profile gpu-nvidia up -d
 
-# Restart a specific service
-docker compose restart n8n-local-ai
+# Rebuild custom images (Whisper, Qwen TTS)
+docker compose build --no-cache whisper qwen-tts
+docker compose up -d whisper qwen-tts
 
-# Update images to latest versions
-docker compose --profile all-gpu pull
-docker compose --profile all-gpu up -d
+# Ollama model management
+docker exec ollama ollama list
+docker exec ollama ollama pull <model-name>
+docker exec -it ollama ollama run qwen3.5:9b
 
-# Update specific service
-docker compose pull n8n
-docker compose up -d n8n-local-ai
-
-# Run Backup script
-backup-n8n.sh
-
-# Export everything
-docker exec n8n-local-ai n8n export:workflow --all --output=/data/shared/
-docker exec n8n-local-ai n8n export:credentials --all --output=/data/shared/
-
-# Import everything
-docker exec n8n-local-ai n8n import:workflow --separate --input=/data/shared/workflows/
-docker exec n8n-local-ai n8n import:credentials --separate --input=/data/shared/credentials/
-
-# Database backup
-docker exec postgres-local-ai pg_dump -U n8n n8n > n8n-backup.sql
-
-# Database restore
-cat n8n-backup.sql | docker exec -i postgres-local-ai psql -U n8n -d n8n
+# Export all n8n workflows and credentials
+docker exec n8n n8n export:workflow --all --output=/data/shared/
+docker exec n8n n8n export:credentials --all --output=/data/shared/
 ```
 
-## 🔄 Updating Your Services
+---
 
-Since all images use `:latest` tags, you can easily update to the newest versions:
+## Monitoring
 
-### Update Everything
 ```bash
-# Pull latest images
-docker compose --profile all-gpu pull
-
-# Restart with new images
-docker compose --profile all-gpu up -d
-```
-
-### Update Specific Services
-```bash
-# Update just N8N
-docker compose pull n8n
-docker compose up -d n8n-local-ai
-
-# Update Ollama
-docker compose pull ollama-gpu
-docker compose up -d ollama-gpu
-
-# Update ComfyUI
-docker compose pull comfyui
-docker compose up -d comfyui-local-ai
-```
-
-### Check for Updates
-```bash
-# See current image versions
-docker images | grep -E "n8n|ollama|postgres|qdrant|comfyui"
-
-# Compare with latest on Docker Hub
-docker pull n8nio/n8n:latest
-docker images n8nio/n8n
-```
-
-### Rebuild Custom Images
-For services built from Dockerfiles (Whisper, Kitten TTS):
-```bash
-# Rebuild with latest dependencies
-docker compose build --no-cache whisper-local-ai kitten-tts-local-ai
-
-# Restart with new builds
-docker compose up -d whisper-local-ai kitten-tts-local-ai
-```
-
-## 🤖 Working with Ollama Models
-
-### Managing Models
-```bash
-# List installed models
-docker exec ollama-gpu ollama list
-
-# Pull a new model
-docker exec ollama-gpu ollama pull mistral
-docker exec ollama-gpu ollama pull codellama:13b
-
-# Remove a model
-docker exec ollama-gpu ollama rm llama3.2
-
-# Run a model interactively
-docker exec -it ollama-gpu ollama run llama3.2
-
-# Show model information
-docker exec ollama-gpu ollama show llama3.2
-```
-
-### Test Ollama API
-```bash
-# Simple completion
-curl http://localhost:11434/api/generate -d '{
-  "model": "llama3.2",
-  "prompt": "Why is the sky blue?",
-  "stream": false
-}'
-
-# Chat completion
-curl http://localhost:11434/api/chat -d '{
-  "model": "llama3.2",
-  "messages": [
-    {"role": "user", "content": "Hello!"}
-  ]
-}'
-```
-
-## 🗄️ Database Management
-
-### PostgreSQL Backup & Restore
-```bash
-# Backup database
-docker exec postgres-local-ai pg_dump -U n8n n8n > backup_$(date +%Y%m%d).sql
-
-# Restore database
-cat backup_20241126.sql | docker exec -i postgres-local-ai psql -U n8n -d n8n
-
-# Access PostgreSQL shell
-docker exec -it postgres-local-ai psql -U n8n -d n8n
-```
-
-### Qdrant Vector Database
-```bash
-# Access Qdrant web UI
-# Open browser: http://localhost:6333/dashboard
-
-# List collections via API
-curl http://localhost:6333/collections
-
-# Backup Qdrant data (via volume)
-docker run --rm -v qdrant_storage:/data -v $(pwd):/backup \
-  alpine tar czf /backup/qdrant-backup-$(date +%Y%m%d).tar.gz -C /data .
-```
-
-## 📊 Monitoring & Debugging
-
-### Resource Usage
-```bash
-# Container resource stats
+# Resource usage across all containers
 docker stats
 
-# Specific service stats
-docker stats n8n-local-ai ollama-gpu
+# Specific services
+docker stats n8n ollama postgres
 
 # Disk usage by Docker
 docker system df
-
-# Detailed volume usage
 docker system df -v
-```
 
-### Logs & Debugging
-```bash
-# Follow logs for all services
-docker compose logs -f
+# Check container health
+docker inspect --format='{{.State.Health.Status}}' n8n
+docker inspect --format='{{.State.Health.Status}}' postgres
 
-# Logs for specific service with timestamps
-docker compose logs -f --timestamps n8n-local-ai
-
-# Last 100 lines
-docker compose logs --tail=100 ollama-gpu
+# Follow logs with timestamps
+docker compose logs -f --timestamps n8n
+docker compose logs --tail=100 ollama
 
 # Save logs to file
-docker compose logs > system-logs-$(date +%Y%m%d).log
-
-# Check service health
-docker inspect --format='{{.State.Health.Status}}' n8n-local-ai
+docker compose logs > baxter-logs-$(date +%Y%m%d).log
 ```
 
-### Interactive Shell Access
+---
+
+## Updating Services
+
+All images use `:latest` — pull and restart to update:
+
 ```bash
-# Access container shell
-docker exec -it n8n-local-ai /bin/sh
-docker exec -it postgres-local-ai /bin/bash
-docker exec -it ollama-gpu /bin/bash
+# Update everything
+docker compose --profile gpu-nvidia pull
+docker compose --profile gpu-nvidia up -d
 
-# Run commands directly
-docker exec n8n-local-ai ls -la /home/node/.n8n
-docker exec postgres-local-ai pg_isready -U n8n
+# Update a specific service
+docker compose pull n8n
+docker compose up -d n8n
+
+# Rebuild custom images after Dockerfile changes (Whisper, Qwen TTS)
+docker compose build --no-cache whisper qwen-tts
+docker compose up -d whisper qwen-tts
 ```
 
-## 🧹 Cleanup & Maintenance
+---
 
-### Clean Up Unused Resources
+## Maintenance
+
+### Clean up unused resources
+
 ```bash
 # Remove stopped containers
 docker container prune
@@ -353,149 +333,45 @@ docker container prune
 # Remove unused images
 docker image prune
 
-# Remove unused volumes (⚠️ careful!)
+# Remove unused volumes ⚠️ check before running
 docker volume prune
 
-# Remove everything unused (⚠️ very careful!)
+# Remove everything unused ⚠️ very destructive
 docker system prune -a
 
-# See what will be removed (dry run)
+# Dry run — see what would be removed
 docker system prune --dry-run
-```
 
-### Reset Specific Service
-```bash
-# Stop, remove, and recreate service
-docker compose stop n8n-local-ai
-docker compose rm -f n8n-local-ai
-docker compose up -d n8n-local-ai
-
-# Reset with fresh volume
-docker compose stop n8n-local-ai
-docker volume rm n8n_storage
-docker compose up -d n8n-local-ai
-```
-
-## 🔐 Security & Backups
-
-### Backup Everything
-```bash
-# Create backup directory
-mkdir -p ~/backups/local-ai-$(date +%Y%m%d)
-
-# Backup all volumes
-for volume in n8n_storage postgres_storage ollama_storage qdrant_storage hf_cache; do
-  docker run --rm \
-    -v ${volume}:/data \
-    -v ~/backups/local-ai-$(date +%Y%m%d):/backup \
-    alpine tar czf /backup/${volume}.tar.gz -C /data .
-done
-
-# Backup .env file
-cp .env ~/backups/local-ai-$(date +%Y%m%d)/env.backup
-```
-
-### Security Hardening
-```bash
-# Generate strong encryption keys
-openssl rand -hex 32
-
-# Check exposed ports
-docker compose ps --format "table {{.Service}}\t{{.Ports}}"
-
-# Limit container resources
-# Add to docker-compose.yml:
-# deploy:
-#   resources:
-#     limits:
-#       cpus: '2'
-#       memory: 4G
-```
-
-## 🌐 Network & Connectivity
-
-### Test Network Connectivity
-```bash
-# Test if services can reach each other
-docker exec n8n-local-ai ping -c 3 postgres-local-ai
-docker exec n8n-local-ai wget -O- http://ollama-gpu:11434
-
-# Inspect network
-docker network inspect local-ai-network
-
-# See which containers are on the network
-docker network inspect local-ai-network --format='{{range .Containers}}{{.Name}} {{end}}'
-```
-
-### Connect External Services
-```bash
-# Connect an external container to the network
-docker network connect local-ai-network your-other-container
-
-# Example: Connect a custom Python script container
-docker run -d --name my-script \
-  --network local-ai-network \
-  python:3.11 python my_script.py
-```
-
-## 📈 Performance Optimization
-
-### GPU Usage
-```bash
-# Monitor GPU usage (NVIDIA)
-nvidia-smi
-
-# Watch GPU usage in real-time
-watch -n 1 nvidia-smi
-
-# Check which containers are using GPU
-docker ps --filter "label=com.nvidia.cuda.version"
-```
-
-### Optimize Docker
-```bash
-# Set Docker resource limits in Docker Desktop
-# Settings → Resources → Advanced
-
-# Clear build cache
+# Clear build cache only
 docker builder prune -af
-
-# Compact Docker disk image (Docker Desktop)
-# Settings → Resources → Disk image location → Compact
 ```
 
-## 🔗 Integration Examples
+### Reset a specific service
 
-### Use N8N with Ollama
-In N8N workflows, use Ollama HTTP Request node:
-- URL: `http://ollama-gpu:11434/api/generate`
-- Method: POST
-- Body: `{"model": "llama3.2", "prompt": "{{$json.input}}"}`
-
-### Use Whisper API
 ```bash
-# Transcribe audio file
-curl -X POST http://localhost:5001/transcribe \
-  -F "audio=@recording.mp3" \
-  -F "language=en"
+# Restart without losing data
+docker compose restart n8n
+
+# Full stop, remove, recreate
+docker compose stop n8n
+docker compose rm -f n8n
+docker compose up -d n8n
+
+# Reset with a completely fresh volume ⚠️ deletes all n8n data
+docker compose stop n8n
+docker volume rm n8n_storage
+docker compose up -d n8n
 ```
 
-### Use Kitten TTS API
+---
+
+## Volume Management
+
 ```bash
-# Generate speech
-curl -X POST http://localhost:8005/generate \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Hello world", "voice": "default"}'
-```
+# List all project volumes
+docker volume ls | grep -E "n8n|postgres|ollama|qdrant"
 
-## 💾 Volume Management
-
-### Inspect Volumes
-```bash
-# List all volumes
-docker volume ls | grep local-ai
-
-# Inspect volume details
+# Inspect a volume
 docker volume inspect ollama_storage
 
 # Check volume size
@@ -503,84 +379,103 @@ docker system df -v | grep ollama_storage
 
 # Browse volume contents
 docker run --rm -v ollama_storage:/data alpine ls -lah /data
-```
 
-### Copy Files To/From Volumes
-```bash
-# Copy file into volume
-docker run --rm -v ollama_storage:/data -v $(pwd):/local \
+# Copy a file into a volume
+docker run --rm \
+  -v ollama_storage:/data \
+  -v $(pwd):/local \
   alpine cp /local/myfile.txt /data/
 
-# Copy file from volume
-docker run --rm -v ollama_storage:/data -v $(pwd):/local \
+# Copy a file out of a volume
+docker run --rm \
+  -v ollama_storage:/data \
+  -v $(pwd):/local \
   alpine cp /data/myfile.txt /local/
 ```
 
-## 📝 Service-Specific Notes
+---
 
-### N8N
-- Access at: http://localhost:5678
-- Demo data automatically imported on first run
-- Shared folder mounted at `/data/shared` for file exchange
-
-### Ollama
-- Pre-pulls: `llama3.2`, `nomic-embed-text`, `gemma3:latest`
-- Add more models: `docker exec -it ollama ollama pull <model-name>`
-
-### Whisper
-- Requires Dockerfile in `./whisper/` directory
-- Customize model size in Dockerfile
-
-### ComfyUI
-- Update paths in `.env` to point to your existing ComfyUI installation
-- Models and custom nodes persist across restarts
-
-### Kitten TTS
-- Requires Dockerfile and config.yaml in `./kitten-tts/`
-- HuggingFace models cached in named volume
-
-## 🐛 Troubleshooting
-
-### Port Already in Use
 ```bash
-# Check what's using the port
-sudo lsof -i :5678
+# Database
+docker exec postgres pg_dump -U n8n n8n > backup_$(date +%Y%m%d).sql
 
-# Change port in docker-compose.yml or stop conflicting service
+# Restore database
+cat backup_20250315.sql | docker exec -i postgres psql -U n8n -d n8n
+
+# Qdrant vector store
+docker run --rm \
+  -v qdrant_storage:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/qdrant-$(date +%Y%m%d).tar.gz -C /data .
+
+# All volumes + .env
+mkdir -p ~/backups/baxter-$(date +%Y%m%d)
+for volume in n8n_storage postgres_storage ollama_storage qdrant_storage; do
+  docker run --rm \
+    -v ${volume}:/data \
+    -v ~/backups/baxter-$(date +%Y%m%d):/backup \
+    alpine tar czf /backup/${volume}.tar.gz -C /data .
+done
+cp .env ~/backups/baxter-$(date +%Y%m%d)/env.backup
 ```
 
-### Network Not Found
+---
+
+## Troubleshooting
+
+**Telegram bot not responding**
+Check that `a-Baxter-v2-Input` is active and the Telegram credential is valid:
 ```bash
-# Create the external network
+docker compose logs -f n8n | grep -i telegram
+```
+
+**OAuth callback error ("Unauthorized") for Google Calendar**
+Always complete the OAuth flow through your public domain, not `localhost`. The redirect URI registered in Google Cloud Console must exactly match `https://yourdomain.com/rest/oauth2-credential/callback`.
+
+**Ollama model not found**
+```bash
+docker exec ollama ollama list
+docker exec ollama ollama pull qwen3.5:9b
+```
+
+**Network not found**
+```bash
 docker network create local-bridge
 ```
 
-### GPU Not Detected
+**GPU not detected**
 ```bash
-# Verify NVIDIA runtime
 docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
-
-# If that fails, check NVIDIA Container Toolkit installation
 ```
-
-### Permission Issues (ComfyUI)
+If that fails, install or reinstall the NVIDIA Container Toolkit:
 ```bash
-# Set correct USER_ID and GROUP_ID in .env
-echo "USER_ID=$(id -u)" >> .env
-echo "GROUP_ID=$(id -g)" >> .env
+# Ubuntu/Debian
+distribution=$(. /etc/os-release; echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list \
+  | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo systemctl restart docker
 ```
 
-## 🤝 Contributing
+**Port already in use**
+```bash
+sudo lsof -i :5678   # or whichever port
+```
 
-Feel free to submit issues and enhancement requests!
+**Re-apply database schema after an update**
+```bash
+bash setup.sh
+# setup.sh detects a running Postgres container and applies the schema automatically
+```
 
-## 📄 License
+---
 
-[Your License Here]
+## Links
 
-## 🔗 Links
-
-- [N8N Documentation](https://docs.n8n.io/)
+- [n8n Documentation](https://docs.n8n.io/)
 - [Ollama](https://ollama.ai/)
-- [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 - [Qdrant](https://qdrant.tech/)
+- [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
+- [Whisper (local fork)](https://github.com/maxvandop/local-whisper)
