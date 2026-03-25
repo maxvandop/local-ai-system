@@ -11,6 +11,8 @@
 --   6. tasks                   — individual tasks linked to projects
 --   7. subtasks                — child items of tasks
 --   8. reminders               — time-based alerts (ReminderHeartbeat)
+--   9. news_sources            — curated RSS feed list
+--  10. news_items              — fetched and parsed news articles
 --
 -- SAFE TO RE-RUN — every statement uses IF NOT EXISTS or OR REPLACE.
 -- No data is ever dropped or truncated.
@@ -129,8 +131,8 @@ CREATE TABLE IF NOT EXISTS user_profile (
 --     (channel_id, soul, user_profile, preferences, current_focus, onboarding_step)
 -- VALUES (
 --     8497733638,
---     'Baxter -- sharp and direct -- personal AI assistant',
---     'Max, AI/automation consultant based in The Hague',
+--     'Baxter — sharp, witty and brutally honest — a critical thinking companion...',
+--     'Max, based in Rotterdam, Netherlands...',
 --     'Concise and direct, English only',
 --     '',
 --     0
@@ -148,7 +150,7 @@ CREATE TABLE IF NOT EXISTS projects (
     channel_id   BIGINT        NOT NULL,
     name         VARCHAR(255)  NOT NULL,
     description  TEXT,
-    status       VARCHAR(50)   NOT NULL DEFAULT 'active',
+    status       VARCHAR(50)   NOT NULL DEFAULT 'active',  -- 'active' | 'on_hold' | 'completed'
     due_date     DATE,
     created_at   TIMESTAMPTZ   DEFAULT NOW(),
     updated_at   TIMESTAMPTZ   DEFAULT NOW(),
@@ -226,8 +228,7 @@ CREATE TABLE IF NOT EXISTS reminders (
 
 CREATE INDEX IF NOT EXISTS reminders_channel_idx   ON reminders (channel_id);
 
--- Partial index: only index unsent reminders — keeps the heartbeat query fast
--- as the table grows over time.
+-- Partial index: only unsent reminders — keeps the heartbeat query fast.
 CREATE INDEX IF NOT EXISTS reminders_unsent_idx
     ON reminders (remind_at ASC)
     WHERE sent = FALSE;
@@ -265,9 +266,65 @@ CREATE TRIGGER trg_user_profile_updated_at
 
 
 -- =============================================================================
+-- 9. NEWS SOURCES
+--    Managed in pgAdmin — add, disable or categorise sources without touching
+--    any workflow. The NewsDigest workflow reads active sources each run.
+--    categories: technology | local | world
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS news_sources (
+    id          SERIAL        PRIMARY KEY,
+    name        VARCHAR(255)  NOT NULL,
+    feed_url    TEXT          NOT NULL UNIQUE,
+    category    VARCHAR(100)  NOT NULL DEFAULT 'general',
+    active      BOOLEAN       NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ   DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS news_sources_active_idx   ON news_sources (active);
+CREATE INDEX IF NOT EXISTS news_sources_category_idx ON news_sources (category);
+
+-- Seed active sources — safe to re-run (ON CONFLICT updates name and active flag).
+INSERT INTO news_sources (name, feed_url, category, active) VALUES
+    ('Hacker News',    'https://hnrss.org/frontpage',                    'technology', TRUE),
+    ('MIT Tech Review','https://www.technologyreview.com/feed/',          'technology', TRUE),
+    ('The Verge',      'https://www.theverge.com/rss/index.xml',         'technology', TRUE),
+    ('NOS Nieuws',     'https://feeds.nos.nl/nosnieuwsalgemeen',          'local',      TRUE),
+    ('RTV Rijnmond',   'https://www.rijnmond.nl/rss/nieuws',             'local',      TRUE),
+    ('BBC World',      'https://feeds.bbci.co.uk/news/world/rss.xml',    'world',      TRUE)
+ON CONFLICT (feed_url) DO UPDATE SET
+    name   = EXCLUDED.name,
+    active = EXCLUDED.active;
+
+
+-- =============================================================================
+-- 10. NEWS ITEMS
+--     Fetched and parsed by NewsDigest. Cleaned up after 30 days.
+--     ingested_to_qdrant tracks which items have been embedded into Qdrant
+--     (news_knowledge collection) for semantic retrieval.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS news_items (
+    id                  SERIAL        PRIMARY KEY,
+    source_id           INTEGER       NOT NULL REFERENCES news_sources (id) ON DELETE CASCADE,
+    title               VARCHAR(500)  NOT NULL,
+    summary             TEXT,
+    url                 TEXT          UNIQUE,
+    published_at        TIMESTAMPTZ   DEFAULT NOW(),
+    ingested_to_qdrant  BOOLEAN       NOT NULL DEFAULT FALSE,
+    created_at          TIMESTAMPTZ   DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS news_items_source_idx    ON news_items (source_id);
+CREATE INDEX IF NOT EXISTS news_items_published_idx ON news_items (published_at DESC);
+CREATE INDEX IF NOT EXISTS news_items_unindexed_idx ON news_items (ingested_to_qdrant)
+    WHERE ingested_to_qdrant = FALSE;
+
+
+-- =============================================================================
 -- VERIFICATION
 --    Returns one row per table with its column count.
---    All 8 tables should appear — if any are missing, re-check for errors above.
+--    All 10 tables should appear.
 -- =============================================================================
 
 SELECT
@@ -287,7 +344,9 @@ WHERE t.table_schema = 'public'
       'projects',
       'tasks',
       'subtasks',
-      'reminders'
+      'reminders',
+      'news_sources',
+      'news_items'
   )
 GROUP BY t.table_name
 ORDER BY t.table_name;
