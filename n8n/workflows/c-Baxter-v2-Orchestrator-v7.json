@@ -1,0 +1,1489 @@
+{
+  "name": "c-Baxter-v2-Orchestrator-v7",
+  "nodes": [
+    {
+      "parameters": {
+        "model": "qwen3.5:9b",
+        "options": {
+          "temperature": 0.7,
+          "topK": 20,
+          "topP": 0.8,
+          "numThread": 16,
+          "presencePenalty": 1.5
+        }
+      },
+      "id": "02d9e944-b3be-40d7-9f5d-9755eb017742",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "position": [
+        64,
+        256
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=baxter-main",
+        "contextWindowLength": 2
+      },
+      "id": "6aaf78af-fd43-4b0c-a2b0-3d918779f16c",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        224,
+        256
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"input\": \"string\"\n}"
+      },
+      "id": "6bd216ad-c8d5-4d48-8ac2-ef045577a20a",
+      "typeVersion": 1.1,
+      "name": "Start",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "D5CmEZRYTq20ffd6",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/D5CmEZRYTq20ffd6",
+          "cachedResultName": "z-Baxter-v2-Communication"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "input": "={{ JSON.stringify($('SetOutput').first().json) }}"
+          },
+          "matchingColumns": [
+            "input"
+          ],
+          "schema": [
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2064,
+        0
+      ],
+      "id": "2c1f659c-a17a-4180-9847-6437709a5da3",
+      "name": "Call 'z-Baxter-v2-Communication'"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = JSON.parse($input.first().json.input);\nreturn parsed;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "d3937e0e-d111-4d23-b687-27dca1039494",
+      "name": "ParseInput"
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $input.first().json;\n\nreturn {\n  InputType: input.InputType ?? \"unknown\",\n  RequestInput: {\n    input: (input.RequestInput?.input ?? \"\") + \"\\n\\n###OUTPUT###\\nStart your final answer with the exact token RESPONSE: on its own line.\"\n  },\n  ChannelInformation: {\n    ChannelID: input.ChannelInformation?.ChannelID ?? null,\n    MessageID: input.ChannelInformation?.MessageID ?? null\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        0
+      ],
+      "id": "b714ccce-584e-4c7c-b1c4-47f2f84bfed1",
+      "name": "SetVars"
+    },
+    {
+      "parameters": {
+        "jsCode": "let vars = $('SetVars').first().json;\nlet agentOutput = $('Agent').first().json;\n\nconst cleanResponse = (input) => {\n    if (!input || typeof input !== 'string') return '';\n\n    // Convert escaped newlines to real newlines\n    let output = input.replace(/\\\\n/g, '\\n');\n\n    // Remove <think> blocks — handles both closed and unclosed tags\n    output = output.replace(/<think>[\\s\\S]*?<\\/think>/gi, '');\n    output = output.replace(/<think>[\\s\\S]*/gi, '');\n\n    // Try to extract everything after the last RESPONSE: marker\n    const matches = [...output.matchAll(/RESPONSE:\\s*/g)];\n    if (matches.length > 0) {\n        const last = matches[matches.length - 1];\n        const extracted = output.slice(last.index + last[0].length).trim();\n        if (extracted.length > 0) {\n            return extracted.length > 3000 ? extracted.slice(0, 3000) + '...' : extracted;\n        }\n    }\n\n    // Fallback: RESPONSE: marker missing — strip reasoning line by line\n    const lines = output.split('\\n').map(l => l.trim()).filter(Boolean);\n\n    const isReasoningLine = (line) => {\n        const patterns = [\n            /^(okay|ok|alright|right|so|well)[,\\s]/i,\n            /^let me\\s/i,\n            /^i('ll| will| need to| should| must| can| am going to)\\s/i,\n            /^i('ve| have) (retrieved|fetched|found|got|collected)/i,\n            /^now i('ll| need| should| will| can)/i,\n            /^i'll present/i,\n            /^(first|now|next|then|finally)[,\\s]/i,\n            /^the user\\s/i,\n            /^the user (wants|asked|needs|is asking)/i,\n            /^they (want|asked|need|said)/i,\n            /^(looking at|checking|reviewing|analyzing|considering)/i,\n            /^(since|given that|because|as)\\s/i,\n            /^(therefore|thus|so|hence)\\s/i,\n            /^my (response|answer|plan|approach)/i,\n            /^let me (format|organize|structure|present|summarize|summarise)/i,\n            /^here('s| is) (a summary|the|what)/i,\n            /^this (seems|looks|appears|is a)/i,\n            /^it (seems|looks|appears)/i,\n            /^OUTPUT:/i,\n            /^Start your final answer/i,\n            /^##OUTPUT/i,\n            /^\\/no_think/i,\n        ];\n        return patterns.some(p => p.test(line));\n    };\n\n    const responseLines = lines.filter(line => !isReasoningLine(line));\n\n    if (responseLines.length > 0) {\n        const cleaned = responseLines.join('\\n').trim();\n        return cleaned.length > 3000 ? cleaned.slice(0, 3000) + '...' : cleaned;\n    }\n\n    // Absolute last resort — return the last non-empty line\n    const lastLine = lines[lines.length - 1] || '';\n    return lastLine.length > 3000 ? lastLine.slice(0, 3000) + '...' : lastLine;\n};\n\nlet response = cleanResponse(agentOutput.output ?? '');\n\n// Never pass empty string downstream\nif (!response || response.trim().length === 0) {\n    response = 'Sorry, I ran into an issue formulating a response. Please try again.';\n}\n\nreturn {\n    ...vars,\n    AgentOutput: {\n        response,\n        model: null,\n        tokens: {\n            prompt: null,\n            completion: null,\n            total: null\n        },\n        metadata: {}\n    }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        0
+      ],
+      "id": "a3044825-d341-4589-8e64-761703bb274f",
+      "name": "SetOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('SetVars').first().json.RequestInput.input }}",
+        "options": {
+          "systemMessage": "={{ $('BuildSystemPrompt').first().json.systemPrompt }}",
+          "maxIterations": 15,
+          "returnIntermediateSteps": true
+        }
+      },
+      "id": "4a60a364-1e51-4ee5-8e61-1aba4de7730a",
+      "name": "Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        1104,
+        0
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "message_history",
+          "mode": "list",
+          "cachedResultName": "message_history"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "channel_id": "={{ $('SetOutput').first().json.ChannelInformation.ChannelID }}",
+            "message_id": "={{ $('SetOutput').first().json.ChannelInformation.MessageID }}",
+            "input_type": "={{ $('SetOutput').first().json.InputType }}",
+            "user_input": "={{ $('SetOutput').first().json.RequestInput.input }}",
+            "agent_response": "={{ $('SetOutput').first().json.AgentOutput.response }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "channel_id",
+              "displayName": "channel_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "input_type",
+              "displayName": "input_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_input",
+              "displayName": "user_input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "agent_response",
+              "displayName": "agent_response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1776,
+        0
+      ],
+      "id": "2f93d784-a1a4-4703-93e7-4c4294b6b5e2",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this only when you are unsure of the database table structure before writing a query. Skip this if you already know the schema.",
+        "operation": "executeQuery",
+        "query": "SELECT table_name, column_name, data_type \nFROM information_schema.columns \nWHERE table_schema = 'public'\nORDER BY table_name, ordinal_position;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        384,
+        400
+      ],
+      "id": "1fb59e82-68f8-446f-8815-0b78bf4bd341",
+      "name": "GetSchema",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=Execute a SQL SELECT query against PostgreSQL to retrieve conversation history. Always filter WHERE channel_id = [channel_id]. Table: message_history | Columns: id, channel_id, input_type, user_input, created_at. Example: SELECT id, input_type, user_input, created_at FROM message_history WHERE channel_id = {{ $json.ChannelInformation.ChannelID }} ORDER BY created_at DESC LIMIT 10",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('sql_query', 'SQL SELECT query against message_history table') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        528,
+        400
+      ],
+      "id": "ee576371-336b-458e-8d4a-41b41a89382f",
+      "name": "ExecQuery",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolWikipedia",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        1296
+      ],
+      "id": "73dc561b-90d5-426c-8d51-2272c75e00b3",
+      "name": "Wikipedia"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Research Agent",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=LANGUAGE: Always respond in English only, regardless of the language of the query or tool results.\nYou are a research agent with access to three tools:\n\n- Wikipedia: for factual, historical, and encyclopedic queries.\n- DuckDuckGo: for current events, news, or anything Wikipedia does not cover well.\n- Weather: for any question about current conditions or forecasts for a specific location.\n\nUse the most appropriate tool for the query. Use multiple tools when cross-referencing would improve the answer. Always base your response on tool results, never on your own knowledge."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        1168,
+        816
+      ],
+      "id": "32bd9cec-d3ee-4d0c-9f28-c60e03fd5cbd",
+      "name": "Research Agent"
+    },
+    {
+      "parameters": {
+        "model": "qwen3.5:9b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        992,
+        1024
+      ],
+      "id": "2750d394-06f8-4bf1-886b-1ed3dae3943b",
+      "name": "Ollama Chat Model2",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "query": "$fromAI",
+        "webSearchOptions": {
+          "maxResults": 5,
+          "region": "wt-wt",
+          "safeSearch": 0
+        },
+        "cacheSettings": {
+          "enableCache": true,
+          "cacheTTL": 300
+        },
+        "reliabilitySettings": {},
+        "proxySettings": {},
+        "searchFilters": {}
+      },
+      "type": "n8n-nodes-duckduckgo-search.duckDuckGoTool",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        1296
+      ],
+      "id": "69734a6c-c887-42b8-b515-b57a5472b075",
+      "name": "DuckDuckGo"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get current weather and forecast for any location. Provide the city name only as the location parameter, no country or comma. Example: Rotterdam",
+        "url": "=https://wttr.in/{{ encodeURIComponent($fromAI('location', 'The city name only, no country. Example: Rotterdam')) }}?format=j1&units=m",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        1184,
+        1296
+      ],
+      "id": "964cd846-3da3-4145-89e8-4f6d30e4c479",
+      "name": "WeatherAPI"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Query long-term memory for relevant context about the user and past conversations",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "baxter_memory",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1008,
+        400
+      ],
+      "id": "ea83d7d9-a52e-42c7-bb9c-5869f7b53b3d",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "aDY94b6gH9Fj5hxk",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        608
+      ],
+      "id": "4c5c8101-06c3-4aaa-a2e6-9c698570a8d1",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen3.5:9b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        1008
+      ],
+      "id": "8ef40637-0b6d-4b5c-9036-68a8ba78764d",
+      "name": "Ollama Chat Model3",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Use for anything related to tasks, projects, subtasks, priorities and due dates. Pass the full user request as the prompt.",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=You are Baxter's project management module. You manage projects, tasks, subtasks, and reminders.\n\nLANGUAGE: English only.\nFORMAT: Plain text only. No markdown, no bullet points, no headers.\n\nTOOLS:\n- GetProjects — retrieve all projects. Call before any project action.\n- UpsertProject — create or update a project. MUST be called to apply any change. Status values: active, on_hold, completed.\n- GetTasks — retrieve all tasks. Call before any task action.\n- UpsertTask — create or update a task. MUST be called to apply any change. Use completed=true to mark done.\n- GetSubtasks — retrieve subtasks for a given task. Call before any subtask action.\n- UpsertSubtask — create or update a subtask. MUST be called to apply any change.\n- GetReminders — retrieve all pending reminders.\n- UpsertReminder — create a new reminder. MUST be called to apply any change.\n\nRULES:\n- channel_id is always: {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\n- Before any update, always call the relevant Get tool first to confirm the item exists. Use the existing name/title exactly as stored when calling Upsert — this ensures the unique constraint matches correctly.\n- Priority values: low, medium, high, critical\n- Date format: YYYY-MM-DD\n- Reminder datetime format: YYYY-MM-DD HH:MM:SS in UTC. User is in CET (UTC+1), subtract 1 hour before storing.\n- task_id and subtask_id are optional on reminders. Leave both empty for standalone reminders.\n- CRITICAL: Never confirm any action to the user unless you have received a successful response from the relevant tool call. If the tool was not called, do not claim the action was completed.\n\nPROACTIVE SUGGESTIONS:\n- After creating a project: ask if the user wants to add tasks to it\n- After creating a task: ask if the user wants to set a reminder for it\n- After creating a reminder: ask if the user wants to add subtasks to the linked task\n- After marking a task or project complete: ask if any related items need updating\n- One suggestion only, kept to a single short question at the end of your response\n\nOUTPUT: End every response with RESPONSE: followed by your answer.",
+          "maxIterations": 20
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        1712,
+        816
+      ],
+      "id": "0fec4219-3bbe-49eb-91fe-2bf91848b7bc",
+      "name": "Project Manager"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get tasks. Use to retrieve pending, overdue, or completed tasks.",
+        "operation": "executeQuery",
+        "query": "SELECT id, title, details, category, priority, due_date, completed, project_id, created_at \nFROM tasks \nWHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nAND completed = FALSE\nORDER BY due_date ASC NULLS LAST, priority DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1792,
+        1232
+      ],
+      "id": "cacef6d1-33b3-41e6-a577-266b5a79f4ba",
+      "name": "GetTasks",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "baxter-rs",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1136,
+        1024
+      ],
+      "id": "c190ff98-9030-4efc-8406-cfd4b398c7a8",
+      "name": "Memory RS"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "baxter-pm",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1696,
+        1008
+      ],
+      "id": "1e8da262-a99d-4204-9386-f3c8aaeb7c6d",
+      "name": "Memory PM"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get subtasks for a specific task by task_id",
+        "operation": "executeQuery",
+        "query": "SELECT id, task_id, title, completed \nFROM subtasks \nWHERE task_id = {{ $fromAI('task_id', 'The parent task ID') }}\nAND completed = FALSE;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1920,
+        1232
+      ],
+      "id": "86099d32-a7c2-41ce-ae4b-cc22e0c157df",
+      "name": "GetSubtasks",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create or update a task. Use for adding new tasks or updating existing ones.",
+        "operation": "executeQuery",
+        "query": "INSERT INTO tasks (channel_id, title, details, category, priority, due_date, completed, project_id)\nVALUES (\n    {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n    '{{ $fromAI('title', 'Task title') }}',\n    '{{ $fromAI('details', 'Task details') }}',\n    '{{ $fromAI('category', 'Task category') }}',\n    '{{ $fromAI('priority', 'Priority: low, medium, high, critical') }}',\n    NULLIF('{{ $fromAI('due_date', 'Due date in YYYY-MM-DD format, or leave empty') }}', '')::date,\n    {{ $fromAI('completed', 'Boolean, default false') }},\n    NULLIF('{{ $fromAI('project_id', 'Project ID to link to, or leave empty') }}', '')::integer\n)\nON CONFLICT (channel_id, title) DO UPDATE SET\n    details = EXCLUDED.details,\n    category = EXCLUDED.category,\n    priority = EXCLUDED.priority,\n    due_date = EXCLUDED.due_date,\n    completed = EXCLUDED.completed,\n    project_id = EXCLUDED.project_id,\n    updated_at = NOW()\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1792,
+        1408
+      ],
+      "id": "75454b96-b47a-4e48-b1e2-d4bc6dd6059c",
+      "name": "UpsertTask",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create or update a subtask for a given task_id",
+        "operation": "executeQuery",
+        "query": "INSERT INTO subtasks (task_id, title, completed)\nVALUES (\n    {{ $fromAI('task_id', 'Parent task ID') }},\n    '{{ $fromAI('title', 'Subtask title') }}',\n    {{ $fromAI('completed', 'Boolean, default false') }}\n)\nON CONFLICT (task_id, title) DO UPDATE SET\n    completed = EXCLUDED.completed\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1920,
+        1408
+      ],
+      "id": "0b89ef17-111a-467f-a0a6-d78d536fcb14",
+      "name": "UpsertSubtask",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get subtasks for a specific task by task_id",
+        "operation": "executeQuery",
+        "query": "SELECT r.id, r.message, r.remind_at, r.task_id, r.subtask_id\nFROM reminders r\nWHERE r.channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nAND r.sent = FALSE\nAND r.remind_at > NOW()\nORDER BY r.remind_at ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        2048,
+        1232
+      ],
+      "id": "bbf88ef1-3d44-494d-8140-737122f3d0c7",
+      "name": "GetReminders",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create or update a task. Use for adding new tasks or updating existing ones.",
+        "operation": "executeQuery",
+        "query": "INSERT INTO reminders (channel_id, task_id, subtask_id, remind_at, message)\nVALUES (\n    {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n    NULLIF('{{ $fromAI('task_id', 'Task ID as a number, or leave empty if not applicable') }}', '')::integer,\n    NULLIF('{{ $fromAI('subtask_id', 'Subtask ID as a number, or leave empty if not applicable') }}', '')::integer,\n    '{{ $fromAI('remind_at', 'Datetime in YYYY-MM-DD HH:MM:SS format') }}',\n    '{{ $fromAI('message', 'Reminder message text') }}'\n)\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        2048,
+        1408
+      ],
+      "id": "1d0a7dca-2474-40ea-bdfa-55c1804c8c15",
+      "name": "UpsertReminders",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get tasks. Use to retrieve pending, overdue, or completed tasks.",
+        "operation": "executeQuery",
+        "query": "SELECT id, name, description, status, due_date, created_at\nFROM projects\nWHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nAND status != 'completed'\nORDER BY due_date ASC NULLS LAST;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1664,
+        1232
+      ],
+      "id": "865d058b-534e-47d2-b4c1-81cc9099d7c4",
+      "name": "GetProjects",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create or update a task. Use for adding new tasks or updating existing ones.",
+        "operation": "executeQuery",
+        "query": "INSERT INTO projects (channel_id, name, description, status, due_date)\nVALUES (\n    {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n    '{{ $fromAI('name', 'Project name') }}',\n    '{{ $fromAI('description', 'Project description') }}',\n    '{{ $fromAI('status', 'Status: active, on_hold, completed') }}',\n    NULLIF('{{ $fromAI('due_date', 'Due date in YYYY-MM-DD format, or leave empty') }}', '')::date\n)\nON CONFLICT (channel_id, name) DO UPDATE SET\n    description = EXCLUDED.description,\n    status = EXCLUDED.status,\n    due_date = EXCLUDED.due_date\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1664,
+        1408
+      ],
+      "id": "eb1dca87-8b83-4db1-a231-aa9ec8db1350",
+      "name": "UpsertProject",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT channel_id, soul, user_profile, preferences, current_focus, onboarding_step\nFROM user_profile\nWHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        624,
+        0
+      ],
+      "id": "d86044e6-959d-4408-b35f-73d54be0e7bf",
+      "name": "FetchProfile",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\ntry {\n  const allItems = $input.all();\n  const profile = (allItems.length > 0 && allItems[0].json && allItems[0].json.channel_id != null)\n    ? allItems[0].json\n    : null;\n\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n\n  const hasProfile = profile !== null;\n  const onboardingStep = hasProfile ? (profile.onboarding_step ?? 1) : 1;\n\n  // ── Current datetime injected on every execution ────────────────────────\n  const now = new Date();\n  const timeContext = `DATE & TIME:\nCurrent datetime: ${now.toISOString()}\nLocal datetime:   ${now.toLocaleString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\nTimezone:         Europe/Amsterdam\nDay of week:      ${now.toLocaleDateString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long' })}`;\n\n  let systemPrompt = '';\n\n  // ── ONBOARDING MODE ────────────────────────────────────────────────────────\n  if (!hasProfile || onboardingStep > 0) {\n    const step = onboardingStep || 1;\n\n    const steps = {\n      1: `You are setting yourself up as the user's personal AI assistant.\n\nYour ONLY task right now is to warmly greet the user and ask this one question:\n\"Before we dive in, I'd love to define my own identity. What should I call myself, and how would you describe my personality and purpose? For example: 'Baxter — sharp and direct — helps me stay on top of work and life.'\"\n\nWhen they respond, call the UpdateProfile tool with:\n- soul: their answer, preserved exactly\n- next_onboarding_step: 2\nLeave all other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      2: `You are Baxter, a personal AI assistant currently in setup.\n\nYour soul has been defined. Now ask:\n\"Great. Now tell me a bit about you — your work, interests, goals, whatever you'd like me to keep in mind long-term.\"\n\nWhen they respond, call UpdateProfile with:\n- user_profile: a structured summary of what they shared (name, role, interests, goals)\n- next_onboarding_step: 3\nLeave other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      3: `You are Baxter, a personal AI assistant currently in setup.\n\nOne last question:\n\"Almost done — how do you prefer I communicate? Concise and direct, or more detailed? Any language or format preferences?\"\n\nWhen they respond, call UpdateProfile with:\n- preferences: their answer\n- next_onboarding_step: 0\nLeave other fields as empty strings. After saving, confirm setup is complete and you are ready to help.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n    };\n\n    systemPrompt = `/no_think\\n${timeContext}\\n\\n` + (steps[step] || steps[1]);\n\n  // ── OPERATION MODE ──────────────────────────────────────────────────────────\n  } else {\n    const soul        = profile.soul          || 'Baxter — curious, helpful and critical — personal AI assistant';\n    const userProfile = profile.user_profile  || '';\n    const prefs       = profile.preferences   || 'Clear and direct';\n    const focus       = profile.current_focus || '';\n\n    systemPrompt  = `/no_think\\n`;\n    systemPrompt += `${timeContext}\\n\\n`;\n    systemPrompt += `You are ${soul}.\\n\\n`;\n    systemPrompt += `LANGUAGE: Always respond in English only, regardless of input language.\\n\\n`;\n    systemPrompt += `FORMAT: Use markdown where it aids readability — headers and bullets for lists, news summaries and structured data; plain prose for conversational replies. When presenting news, use: **Title** — one sentence summary. Source, date. Be direct and concise. Maximum 3 sentences for simple factual answers.\\n\\n`;\n\n    if (userProfile) systemPrompt += `ABOUT THE USER:\\n${userProfile}\\n\\n`;\n    if (prefs)       systemPrompt += `COMMUNICATION STYLE: ${prefs}\\n\\n`;\n    if (focus)       systemPrompt += `CURRENT FOCUS: ${focus}\\n\\n`;\n\n    systemPrompt += `PROFILE: Update the user profile proactively using UpdateProfile whenever the user shares new information, changes a preference, or shifts focus.\\n\\n`;\n\n    systemPrompt += `TOOLS: Use tools when they add value — do not call tools unnecessarily on every message.\n1. Use LongTermMemory when the user references past events, asks what you remember, or the topic benefits from historical context.\n2. Use ExecQuery only when you need specific recent conversation details.\n3. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n4. Use CalendarManager for events, meetings, appointments or scheduling.\n5. Use NewsTool for current events, local news, tech or AI news, or anything recently changed.\n6. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n7. Only call GetSchema if you need to discover table structure.\n\nJOB DELEGATION: When a request will take significant time or multiple steps, use CreateJob to run it in the background. Assign the appropriate agent (research, baxter, project_manager). Start immediately — do not ask for approval. Tell Max the job has started and what to expect. Use GetJobStatus when Max asks for an update.\n\nVISUALS: When explaining a system, process, architecture or set of connected ideas, proactively generate a sketch without asking first. Use SketchAgent to produce a Mermaid diagram and send it as an image via Telegram. Supported: architecture diagrams, flowcharts, mind maps, sequence diagrams.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n  }\n\n  return [{ json: { systemPrompt, onboardingStep, hasProfile } }];\n\n} catch (error) {\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n  const now = new Date();\n\n  const systemPrompt = `/no_think\nDATE & TIME: ${now.toISOString()} (Europe/Amsterdam)\n\nYou are Baxter, a personal AI assistant. You are curious, helpful and critical.\n\nLANGUAGE: Always respond in English only.\nFORMAT: use markdown where it aids readability (headers, bullets for lists and summaries), plain prose for conversational replies. When presenting news summaries, use this structure: a bold headline, one sentence summary, and source + date on the same line. Separate items with a blank line. Be direct and concise. \n\nTOOLS: Always check available tools before responding. Follow this order:\n1. Call LongTermMemory on every message to retrieve relevant context.\n2. Call ExecQuery for recent history. Filter WHERE channel_id = ${channelID} ORDER BY created_at DESC LIMIT 10.\n3. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n4. Use CalendarManager for events, meetings, appointments or scheduling.\n5. Use NewsTool for current events, local news or anything recently changed.\n6. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n\nJOB DELEGATION: Use CreateJob for multi-step or time-consuming tasks. Start immediately. Tell Max what's running.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n\n  return [{ json: { systemPrompt, onboardingStep: 0, hasProfile: false, fallback: true } }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        0
+      ],
+      "id": "9b4951fc-e351-4141-8fc2-57214ba27834",
+      "name": "BuildSystemPrompt"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Update the user profile. Use this when the user shares new information about themselves, changes their preferences, updates their current focus, or during onboarding. Pass empty strings for fields you do not want to change.",
+        "operation": "executeQuery",
+        "query": "INSERT INTO user_profile (channel_id, soul, user_profile, preferences, current_focus, onboarding_step, updated_at)\nVALUES (\n  {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n  NULLIF('{{ /*n8n-auto-generated-fromAI-override*/ $fromAI('soul', 'Soul definition string, or empty string to keep existing value', 'string') }}', ''),\n  NULLIF('{{ /*n8n-auto-generated-fromAI-override*/ $fromAI('user_profile', 'Structured user profile summary, or empty string to keep existing', 'string') }}', ''),\n  NULLIF('{{ /*n8n-auto-generated-fromAI-override*/ $fromAI('preferences', 'Communication preferences, or empty string to keep existing', 'string') }}', ''),\n  NULLIF('{{ /*n8n-auto-generated-fromAI-override*/ $fromAI('current_focus', 'Current projects or priorities, or empty string to keep existing', 'string') }}', ''),\n  {{ /*n8n-auto-generated-fromAI-override*/ $fromAI('next_onboarding_step', 'Set to 0 when setup is complete, 1-3 during onboarding steps', 'number') }},\n  NOW()\n)\nON CONFLICT (channel_id) DO UPDATE SET\n  soul           = COALESCE(EXCLUDED.soul,          user_profile.soul),\n  user_profile   = COALESCE(EXCLUDED.user_profile,  user_profile.user_profile),\n  preferences    = COALESCE(EXCLUDED.preferences,   user_profile.preferences),\n  current_focus  = COALESCE(EXCLUDED.current_focus, user_profile.current_focus),\n  onboarding_step = EXCLUDED.onboarding_step,\n  updated_at     = NOW();",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        688,
+        400
+      ],
+      "id": "dfa3c1f1-9b88-401c-8e7c-e15ba138d122",
+      "name": "UpdateProfile",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen3.5:9b",
+        "options": {
+          "numThread": 16
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        2192,
+        992
+      ],
+      "id": "107b87d2-bcec-4247-a177-20836636c76c",
+      "name": "OllamaCalendar",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "baxter-calendar",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        2368,
+        992
+      ],
+      "id": "d1525965-ef2b-44d5-8acf-3be6f4695637",
+      "name": "MemoryCalendar"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get calendar events for a given time range. Use ISO 8601 format for timeMin and timeMax. Example: 2025-03-13T00:00:00+01:00",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "limit": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('limit', 'Max events to return, default 10', 'number') }}",
+        "options": {
+          "orderBy": "startTime"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        2544,
+        992
+      ],
+      "id": "5a875f50-5407-4d72-adc0-81ddb9e0f0b8",
+      "name": "GetEvents",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "vbr0M6KRwoLDAOWC",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create a new Google Calendar event. Always confirm event details before creating. Check for existing events first to avoid duplicates.",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('start_datetime', 'Event start in ISO 8601 format e.g. 2025-03-13T14:00:00+01:00', 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('end_datetime', 'Event end in ISO 8601 format', 'string') }}",
+        "additionalFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('description', 'Event description or empty string', 'string') }}",
+          "location": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('location', 'Event location or empty string', 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('title', 'Event title', 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        2704,
+        992
+      ],
+      "id": "209f0604-ccc1-4b68-8fd7-a1bf91dc6917",
+      "name": "CreateEvent",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "vbr0M6KRwoLDAOWC",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Update an existing Google Calendar event by event ID. Fetch the event ID using GetEvents first.",
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('event_id', 'The Google Calendar event ID to update', 'string') }}",
+        "updateFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('description', 'New description or empty to keep', 'string') }}",
+          "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('end_datetime', 'New end datetime in ISO 8601 or empty to keep', 'string') }}",
+          "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('start_datetime', 'New start datetime in ISO 8601 or empty to keep', 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('title', 'New event title or empty to keep', 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        2864,
+        992
+      ],
+      "id": "6356590c-309a-40ca-8244-9ba2dc005921",
+      "name": "UpdateEvent",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "vbr0M6KRwoLDAOWC",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Delete a Google Calendar event by event ID. Always confirm with the user before deleting. Fetch the event ID using GetEvents first.",
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('event_id', 'The Google Calendar event ID to delete', 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        3024,
+        992
+      ],
+      "id": "3fdf2427-0b4a-4cfa-b296-debc1913b48e",
+      "name": "DeleteEvent",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "vbr0M6KRwoLDAOWC",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Use CalendarManager for anything related to events, meetings, appointments, scheduling, or when the user asks what is on today, this week, or any specific date. Also use when creating tasks that should be calendar events, or when checking availability before scheduling reminders.",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', '', 'string') }}",
+        "options": {
+          "systemMessage": "You are Baxter's calendar management sub-agent. You have access to Google Calendar tools to read, create, update, and delete events.\n\nRULES:\n- Always retrieve existing events for the relevant time range before creating new ones to avoid duplicates.\n- When asked about today's schedule, use GetEvents with timeMin = start of today and timeMax = end of today.\n- Use ISO 8601 datetime format including timezone offset (e.g. 2025-03-13T14:00:00+01:00).\n- Confirm event details with the user before creating or deleting.\n- When creating a task that also needs a calendar block, create both."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        2368,
+        816
+      ],
+      "id": "47c1ddb8-8010-43d8-ad83-869b4c085da9",
+      "name": "CalendarManager"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Retrieve recent news items from the local database. Use for current events, local Rotterdam/Netherlands news, AI and tech news, or any topic that may have changed recently. Also use proactively when a conversation topic connects to recent news.\nAfter retrieving results, present each item as: Title — one sentence summary. Source, date.\nWhen no specific topic is requested, pass ALL as the topic to retrieve all recent news.",
+        "operation": "executeQuery",
+        "query": "SELECT ns.name as source, ns.category, ni.title, ni.summary, TO_CHAR(ni.published_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as published_at, ni.url\nFROM news_items ni\nJOIN news_sources ns ON ns.id = ni.source_id\nWHERE ns.active = TRUE\nAND (\n  '{{ $fromAI(\"topic\", \"Topic or keyword to search for, or ALL for everything\", \"string\") }}' = 'ALL'\n  OR ni.title ILIKE '%' || '{{ $fromAI(\"topic\", \"Topic or keyword to search for, or ALL for everything\", \"string\") }}' || '%'\n  OR ni.summary ILIKE '%' || '{{ $fromAI(\"topic\", \"Topic or keyword to search for, or ALL for everything\", \"string\") }}' || '%'\n)\nAND ni.published_at >= NOW() - INTERVAL '30 days'\nORDER BY ni.published_at DESC\nLIMIT {{ $fromAI(\"limit\", \"Max results to return, default 10\", \"number\") }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        832,
+        400
+      ],
+      "id": "39780fac-a854-448c-af68-e930bb11d4c8",
+      "name": "NewsTool",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create a background job for Baxter to execute asynchronously. Use this when a request will take significant time, requires multiple steps, or can be done while Max does other things. The job starts immediately. Agents available: 'research' for web research and information gathering, 'baxter' for general tasks and analysis, 'project_manager' for task/project operations.",
+        "operation": "executeQuery",
+        "query": "INSERT INTO agent_jobs (channel_id, title, instructions, agent, task_id)\nVALUES (\n    {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n    '{{ $fromAI(\"title\", \"One-line description of the job\", \"string\") }}',\n    '{{ $fromAI(\"instructions\", \"Full instructions for the executing agent\", \"string\") }}',\n    '{{ $fromAI(\"agent\", \"Agent to use: research, baxter, or project_manager\", \"string\") }}',\n    {{ $fromAI(\"task_id\", \"Linked task ID as integer, or null if not applicable\", \"number\") }}\n)\nRETURNING id, title, agent;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        2096,
+        240
+      ],
+      "id": "b3a861db-0e84-4cd0-8250-f2da7c4a15e6",
+      "name": "CreateJob",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Check the status of background jobs. Use when Max asks for an update on a running job, or to show what jobs are pending, running or recently completed.",
+        "operation": "executeQuery",
+        "query": "SELECT id, title, agent, status, result,\n       TO_CHAR(created_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as created_at,\n       TO_CHAR(completed_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as completed_at\nFROM agent_jobs\nWHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nORDER BY created_at DESC\nLIMIT 10;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        2288,
+        256
+      ],
+      "id": "0f943064-0b9a-4588-904d-485c83bf0a04",
+      "name": "GetJobStatus",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "ParseInput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ParseInput": {
+      "main": [
+        [
+          {
+            "node": "SetVars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SetVars": {
+      "main": [
+        [
+          {
+            "node": "FetchProfile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SetOutput": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent": {
+      "main": [
+        [
+          {
+            "node": "SetOutput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Call 'z-Baxter-v2-Communication'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetSchema": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ExecQuery": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wikipedia": {
+      "ai_tool": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DuckDuckGo": {
+      "ai_tool": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WeatherAPI": {
+      "ai_tool": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Project Manager": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetTasks": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory RS": {
+      "ai_memory": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory PM": {
+      "ai_memory": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetSubtasks": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertTask": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertSubtask": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetReminders": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertReminders": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetProjects": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertProject": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FetchProfile": {
+      "main": [
+        [
+          {
+            "node": "BuildSystemPrompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BuildSystemPrompt": {
+      "main": [
+        [
+          {
+            "node": "Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpdateProfile": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CalendarManager": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OllamaCalendar": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MemoryCalendar": {
+      "ai_memory": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetEvents": {
+      "ai_tool": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CreateEvent": {
+      "ai_tool": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpdateEvent": {
+      "ai_tool": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeleteEvent": {
+      "ai_tool": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NewsTool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CreateJob": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetJobStatus": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "075d938c-4b6d-4231-9c69-c13ec278130f",
+  "meta": {
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "usIykDmzlBnZzHcS",
+  "tags": []
+}

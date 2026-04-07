@@ -1,0 +1,633 @@
+{
+  "name": "NewsDigest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -544,
+        528
+      ],
+      "id": "30e5984f-58fb-44b6-ad9d-e5cc10d3454a",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM news_items WHERE published_at < NOW() - INTERVAL '30 days';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1072,
+        544
+      ],
+      "id": "66c932a8-a460-445a-bc29-d7529d28f3d6",
+      "name": "CleanOldItems",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE news_items SET ingested_to_qdrant = TRUE WHERE id = ANY(ARRAY[{{ $('AggregateForQdrant').first().json.ids.join(',') }}]::integer[]);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        736,
+        208
+      ],
+      "id": "ca7bdba9-63dd-4b4f-bfb8-5fcb1d68a1ed",
+      "name": "MarkIngested",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.text }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "type",
+                "value": "news"
+              },
+              {
+                "name": "ingested_at",
+                "value": "={{ new Date().toISOString() }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        608,
+        416
+      ],
+      "id": "f782e06b-dc9b-4ca8-bcec-cf59b6186a0f",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        416,
+        416
+      ],
+      "id": "f0089eed-4ae2-4b06-88ac-3309445141fe",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "news_knowledge",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        416,
+        208
+      ],
+      "id": "4739db92-65e6-41d0-922a-f01dc1c42ac0",
+      "name": "InsertToQdrant",
+      "credentials": {
+        "qdrantApi": {
+          "id": "aDY94b6gH9Fj5hxk",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\n\nconst ids = items.map(i => i.json.id);\nconst text = items.map(i => {\n  const pub = new Date(i.json.published_at).toLocaleDateString('en-GB');\n  return `[${pub}] ${i.json.source_name} (${i.json.category}): ${i.json.title}. ${i.json.summary || ''}`;\n}).join('\\n\\n');\n\nreturn [{ json: { text, ids } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        208
+      ],
+      "id": "55fd30c4-6f62-4776-a744-2a4e8be513d7",
+      "name": "AggregateForQdrant"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "nd-check-003",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -16,
+        528
+      ],
+      "id": "3fd2acf9-cf4c-497e-8c00-116d44511c04",
+      "name": "Has New Items?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT ni.id, ni.title, ni.summary, ni.published_at, ni.url,\n       ns.name as source_name, ns.category\nFROM news_items ni\nJOIN news_sources ns ON ns.id = ni.source_id\nWHERE ni.ingested_to_qdrant = FALSE\nAND ni.summary IS NOT NULL\nAND ni.summary != ''\nORDER BY ni.published_at DESC\nLIMIT 100;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -336,
+        528
+      ],
+      "id": "448d31ef-0db1-4a76-9d26-8dac72b09f49",
+      "name": "GetUnindexedItems",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        -80
+      ],
+      "id": "8ea2cccb-f038-45ef-9987-7c5a5e5714ab",
+      "name": "Next Source"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO news_items (source_id, title, summary, url, published_at)\nVALUES (\n  {{ $json.source_id }},\n  '{{ $json.title.replace(/'/g, \"''\") }}',\n  '{{ ($json.summary || '').replace(/'/g, \"''\") }}',\n  '{{ ($json.url || '').replace(/'/g, \"''\") }}',\n  '{{ $json.published_at }}'::timestamptz\n)\nON CONFLICT (url) DO NOTHING;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        896,
+        -80
+      ],
+      "id": "777a4e70-f5fc-4287-a754-183c914c29b1",
+      "name": "UpsertNewsItem",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "nd-check-002",
+              "leftValue": "={{ $json.title }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        704,
+        -80
+      ],
+      "id": "4cb9baa6-c599-4fa6-a1ca-ee213183c391",
+      "name": "Filter Valid Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst sourceId   = $('Loop Over Sources').item.json.id;\nconst sourceName = $('Loop Over Sources').item.json.name;\nconst category   = $('Loop Over Sources').item.json.category;\nconst rawXml     = $input.first().json.data || '';\n\nif (!rawXml || rawXml.trim().length === 0) {\n  return [{ json: { articles: [], source_id: sourceId, skipped: true } }];\n}\n\n// Simple RSS item parser — handles most standard RSS 2.0 and Atom feeds\nconst items = [];\nconst itemRegex = /<item[^>]*>([\\s\\S]*?)<\\/item>|<entry[^>]*>([\\s\\S]*?)<\\/entry>/gi;\nlet match;\n\nwhile ((match = itemRegex.exec(rawXml)) !== null) {\n  const block = match[1] || match[2];\n\n  const getTag = (tag) => {\n    const m = block.match(new RegExp(`<${tag}[^>]*><!\\\\[CDATA\\\\[([\\\\s\\\\S]*?)\\\\]\\\\]></${tag}>|<${tag}[^>]*>([\\\\s\\\\S]*?)</${tag}>`, 'i'));\n    return m ? (m[1] || m[2] || '').trim() : '';\n  };\n\n  const title     = getTag('title').replace(/<[^>]+>/g, '');\n  const link      = getTag('link') || getTag('guid');\n  const pubDate   = getTag('pubDate') || getTag('published') || getTag('updated');\n  const desc      = getTag('description') || getTag('summary') || getTag('content');\n  const cleanDesc = desc.replace(/<[^>]+>/g, '').replace(/\\s+/g, ' ').trim().slice(0, 500);\n\n  if (title && title.length > 0) {\n    items.push({\n      source_id:    sourceId,\n      source_name:  sourceName,\n      category,\n      title:        title.slice(0, 500),\n      summary:      cleanDesc,\n      url:          link.slice(0, 1000),\n      published_at: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString()\n    });\n  }\n\n  if (items.length >= 20) break; // max 20 items per source\n}\n\nreturn items.length > 0\n  ? items.map(a => ({ json: a }))\n  : [{ json: { articles: [], source_id: sourceId, skipped: true } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        -80
+      ],
+      "id": "f639815d-622a-4d67-8f7a-bf5e83ea3606",
+      "name": "ParseFeed"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.feed_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        -80
+      ],
+      "id": "96aaa0d3-90f5-4351-8ef2-6fb221d43949",
+      "name": "FetchFeed",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        16,
+        -96
+      ],
+      "id": "c8a0b736-4b8c-4ca9-b194-2153b3808086",
+      "name": "Loop Over Sources"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "nd-check-001",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -288,
+        -80
+      ],
+      "id": "f6d5ed67-7e21-4dbb-91cf-b678f1388a10",
+      "name": "Has Sources?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, feed_url, category FROM news_sources WHERE active = TRUE ORDER BY category, name;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -480,
+        -80
+      ],
+      "id": "6f02c830-f5ca-4df0-bc8f-fe21c1b4db5f",
+      "name": "GetActiveSources",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -688,
+        -80
+      ],
+      "id": "3d5ed3d2-41e7-4e99-88ab-7c19453ad941",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://qdrant:6333/collections/news_knowledge/points/delete",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filter\": {\n    \"must\": [\n      {\n        \"key\": \"metadata.ingested_at\",\n        \"range\": {\n          \"lt\": \"{{ new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }}\"\n        }\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1280,
+        544
+      ],
+      "id": "793cac3b-2359-453a-b340-aba9aaffc89d",
+      "name": "CleanQdrantNews",
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "GetUnindexedItems",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MarkIngested": {
+      "main": [
+        [
+          {
+            "node": "CleanOldItems",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "InsertToQdrant",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "InsertToQdrant",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "InsertToQdrant": {
+      "main": [
+        [
+          {
+            "node": "MarkIngested",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AggregateForQdrant": {
+      "main": [
+        [
+          {
+            "node": "InsertToQdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has New Items?": {
+      "main": [
+        [
+          {
+            "node": "AggregateForQdrant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CleanOldItems",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetUnindexedItems": {
+      "main": [
+        [
+          {
+            "node": "Has New Items?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertNewsItem": {
+      "main": [
+        [
+          {
+            "node": "Next Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Valid Items": {
+      "main": [
+        [
+          {
+            "node": "UpsertNewsItem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ParseFeed": {
+      "main": [
+        [
+          {
+            "node": "Filter Valid Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FetchFeed": {
+      "main": [
+        [
+          {
+            "node": "ParseFeed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next Source": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Sources": {
+      "main": [
+        [],
+        [
+          {
+            "node": "FetchFeed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Sources?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetActiveSources": {
+      "main": [
+        [
+          {
+            "node": "Has Sources?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "GetActiveSources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CleanOldItems": {
+      "main": [
+        [
+          {
+            "node": "CleanQdrantNews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "8721cdde-5a81-485d-932c-feff1b343e1a",
+  "meta": {
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "PripXhV2H0CXTDqx",
+  "tags": []
+}

@@ -1,0 +1,387 @@
+{
+  "name": "4-MemoryConsolidator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "85db3a6e-dbf2-4b19-b25d-5a189a865d5c",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "=http://qdrant:6333/collections/baxter_memory",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "a46a8464-5fc3-43ba-8066-5c55b1d476a4",
+      "name": "GetPointCount"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "mc-threshold-check",
+              "leftValue": "={{ $json.result.points_count }}",
+              "rightValue": 50,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        400,
+        0
+      ],
+      "id": "8a64aa06-fd1a-47e5-93fe-e65679f45ea3",
+      "name": "Above Threshold?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://qdrant:6333/collections/baxter_memory/points/scroll",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"limit\": 500,\n  \"with_payload\": true,\n  \"with_vector\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        -16
+      ],
+      "id": "c4bb289e-0d5f-499d-908a-541f89870b28",
+      "name": "ScrollAllPoints"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst result = $input.first().json.result;\nconst points = result.points || [];\n\nif (points.length === 0) {\n  throw new Error('No points found in collection');\n}\n\n// Collect all point IDs for deletion later\nconst ids = points.map(p => p.id);\n\n// Extract text content from each point's payload\nconst texts = points\n  .map(p => {\n    const payload = p.payload || {};\n    // n8n stores content under 'text' or nested in 'metadata'\n    return payload.text || payload.content || '';\n  })\n  .filter(t => t.length > 0);\n\nconst combined = texts.join('\\n\\n---\\n\\n');\n\nreturn [{ json: { combined, ids, point_count: points.length } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -16
+      ],
+      "id": "e64e47fb-ffd2-40f1-8950-24ee19741367",
+      "name": "ExtractPoints"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=MEMORY ENTRIES TO CONSOLIDATE:\n---\n{{ $json.combined }}\n---\nEND OF ENTRIES\n\nWrite a single consolidated summary.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a memory consolidator. You will receive multiple summaries of past conversations between a user and an AI assistant called Baxter. Your job is to merge them into one single, coherent long-term memory summary. Rules: - Preserve all distinct facts, preferences, tasks, projects and decisions - Remove repetition and redundancy - Plain text only, no bullet points or headers - Maximum 10 sentences - Do NOT invent or infer anything not stated in the input"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1072,
+        -16
+      ],
+      "id": "5c2e383d-89b7-4f40-8f86-b553ef7f8c5c",
+      "name": "ConsolidateLLM"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:3b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmOllama",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        176
+      ],
+      "id": "351e064b-05c5-4d22-b0d8-6297ce2995ef",
+      "name": "Ollama Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst output = $input.first().json.text || $input.first().json.output || '';\nconst ids = $('ExtractPoints').first().json.ids;\nconst point_count = $('ExtractPoints').first().json.point_count;\n\nif (!output.trim()) {\n  throw new Error('LLM returned empty consolidation');\n}\n\nreturn [{ json: { summary: output.trim(), ids, point_count } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        -16
+      ],
+      "id": "10e9b809-ebbd-421a-9cd8-88049ded97dd",
+      "name": "ExtractSummary"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "baxter_memory",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1664,
+        -16
+      ],
+      "id": "70281eea-f36a-42dd-94fe-7fdbd50b72fe",
+      "name": "InsertConsolidated",
+      "credentials": {
+        "qdrantApi": {
+          "id": "aDY94b6gH9Fj5hxk",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        1664,
+        176
+      ],
+      "id": "ea25e0f4-055a-43b5-abab-a580ee41f70e",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $('ExtractSummary').first().json.summary }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "ingested_at",
+                "value": "={{ new Date().toISOString() }}"
+              },
+              {
+                "name": "type",
+                "value": "consolidated_summary"
+              },
+              {
+                "name": "consolidated_from",
+                "value": "={{ $('ExtractSummary').first().json.point_count }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1856,
+        176
+      ],
+      "id": "1926fb2b-e660-4d95-a06b-f884ee3599c5",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://qdrant:6333/collections/baxter_memory/points/delete",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ points: $('ExtractSummary').first().json.ids }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2128,
+        -16
+      ],
+      "id": "b0b42672-9d32-4c20-98a3-0b4bfa2cedd7",
+      "name": "DeleteOldPoints"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "GetPointCount",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetPointCount": {
+      "main": [
+        [
+          {
+            "node": "Above Threshold?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Above Threshold?": {
+      "main": [
+        [
+          {
+            "node": "ScrollAllPoints",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ScrollAllPoints": {
+      "main": [
+        [
+          {
+            "node": "ExtractPoints",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ExtractPoints": {
+      "main": [
+        [
+          {
+            "node": "ConsolidateLLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "ConsolidateLLM",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ConsolidateLLM": {
+      "main": [
+        [
+          {
+            "node": "ExtractSummary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ExtractSummary": {
+      "main": [
+        [
+          {
+            "node": "InsertConsolidated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "InsertConsolidated",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "InsertConsolidated",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "InsertConsolidated": {
+      "main": [
+        [
+          {
+            "node": "DeleteOldPoints",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "9fbb7a58-5a77-4e34-adaa-4736f1709c8d",
+  "meta": {
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "wBUpNfLlcNffPYF6",
+  "tags": []
+}

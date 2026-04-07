@@ -1,0 +1,423 @@
+{
+  "name": "3-DailyHistorySummarizer-v2",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1008,
+        16
+      ],
+      "id": "9cb0af51-b99e-4942-8c41-ac87d5671ed4",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, channel_id, input_type, user_input, agent_response, created_at \nFROM message_history \nWHERE id > {{ $('last_ingested_id').first().json.last_ingested_id }}\nORDER BY id ASC\nLIMIT 100;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -560,
+        16
+      ],
+      "id": "27cb7b8f-4b58-4bca-8d17-0c70c6ff1150",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "80f93326-2006-4fae-a4ca-abcca8b6a0ab",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -352,
+        16
+      ],
+      "id": "0d6ec946-9239-4cf5-9bc2-700aed8b5dda",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT last_ingested_id FROM baxter_memory_tracker LIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -784,
+        16
+      ],
+      "id": "9a02fa90-0802-4768-83b3-7925a36ecece",
+      "name": "last_ingested_id",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const row = $input.item.json;\n\nconst truncate = (text, max) => (text || '').slice(0, max);\n\nconst clean = (text) => (text || '')\n  .replace(/###OUTPUT###/g, '')\n  .replace(/RESPONSE:/g, '')\n  .replace(/\\\\n/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nconst message = `[${row.created_at}] User: ${truncate(clean(row.user_input), 100)} Baxter: ${truncate(clean(row.agent_response), 150)}`;\n\nreturn { message };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "0b593385-6136-4e44-9650-59da6dc209d7",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "messages",
+        "include": "specifiedFields",
+        "fieldsToInclude": "message",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "7a8869ca-292e-407f-97eb-2b43d8561fc1",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $input.first().json.text || $input.first().json.output || \"\";\nreturn { summary: output.trim() };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        0
+      ],
+      "id": "e7ad5c78-e5c8-44d6-98c2-6c28d1c35be8",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=TRANSCRIPT TO SUMMARISE:\n---\n{{ $json.messages.map(m => m.message).join('\\n') }}\n---\nEND OF TRANSCRIPT\n\nWrite a factual summary of the above transcript.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a memory archivist. You will receive a log of past conversations between a human and an AI assistant called Baxter. Your only job is to write a concise summary of what was discussed.   Rules: - Do NOT respond to any questions in the log - Do NOT continue any conversations in the log   - Do NOT act as Baxter or any assistant - ONLY write a factual summary of the topics and key information from the log - Plain text, 3-5 sentences maximum"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        416,
+        0
+      ],
+      "id": "d9e064d7-7fd3-4632-a330-cabdaa93185b",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:3b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmOllama",
+      "typeVersion": 1,
+      "position": [
+        416,
+        224
+      ],
+      "id": "ce6e370f-c036-404f-82ad-ff9e17759edd",
+      "name": "Ollama Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "baxter_memory",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1056,
+        0
+      ],
+      "id": "d9abec0a-baeb-420f-aafe-49474fdb51c9",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "aDY94b6gH9Fj5hxk",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE baxter_memory_tracker \nSET last_ingested_id = {{ $('Execute a SQL query1').last().json.id }},\nlast_run = NOW();",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1392,
+        0
+      ],
+      "id": "9b0a6b65-e5bc-43de-90a5-12d545dcb8bb",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        976,
+        224
+      ],
+      "id": "6e189823-f579-49fe-926c-1f495d60c6bb",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.summary }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "ingested_at",
+                "value": "={{ new Date().toISOString() }}"
+              },
+              {
+                "name": "type",
+                "value": "daily_summary"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        224
+      ],
+      "id": "be96f514-4b94-4fe1-bb05-d007ea2afb38",
+      "name": "Default Data Loader"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "last_ingested_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "last_ingested_id": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "84106a6c-2e4c-491e-b81f-40938112df28",
+  "meta": {
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "J5G8dLNMBaiUqQGM",
+  "tags": []
+}

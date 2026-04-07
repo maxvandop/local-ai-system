@@ -1,0 +1,221 @@
+{
+  "name": "2-ReminderHeartbeat",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "78b36f7d-a743-461b-b063-ba7bff6da7d2",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1512db81-8266-448d-a4fc-80572410646f",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "b163f095-633a-4a00-a4d3-0c1db3f7cb57",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        800,
+        -16
+      ],
+      "id": "7000896a-9ae6-4361-a0fa-0d40f06099c8",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.channel_id }}",
+        "text": "={{ $json.message || 'Reminder: ' + ($json.task_title || $json.subtask_title) }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1088,
+        0
+      ],
+      "id": "518cbccb-391b-40e4-9303-7ce6a77ea426",
+      "name": "Send a text message",
+      "webhookId": "0cfc4e09-71fd-47db-b150-7beaa8c59bd5",
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT r.id, r.channel_id, r.message, r.task_id, r.subtask_id,\n       t.title as task_title, s.title as subtask_title\nFROM reminders r\nLEFT JOIN tasks t ON r.task_id = t.id\nLEFT JOIN subtasks s ON r.subtask_id = s.id\nWHERE r.remind_at AT TIME ZONE 'CET' <= NOW()\nAND r.sent = FALSE;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        0
+      ],
+      "id": "b5f4d967-a521-46b1-a344-c0ac5b215b07",
+      "name": "GetReminders",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE reminders \nSET sent = TRUE \nWHERE id = {{ $('Loop Over Items').item.json.id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1296,
+        0
+      ],
+      "id": "5cda16f0-43d7-4889-a8c5-352f8166adf7",
+      "name": "SetReminderAsSent",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "GetReminders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "SetReminderAsSent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetReminders": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SetReminderAsSent": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Europe/Amsterdam"
+  },
+  "versionId": "85e9ba23-1012-4e07-b1c0-79ee4aee335f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "Qyw2CT9ZePUhDlh5",
+  "tags": []
+}

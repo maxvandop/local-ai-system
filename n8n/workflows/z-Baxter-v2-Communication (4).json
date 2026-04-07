@@ -1,0 +1,480 @@
+{
+  "name": "z-Baxter-v2-Communication",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "sendAudio",
+        "chatId": "={{ $('SetVars').first().json.ChannelInformation.ChannelID }}",
+        "binaryData": true,
+        "binaryPropertyName": "=data",
+        "replyMarkup": "=none",
+        "forceReply": {},
+        "replyKeyboardOptions": {},
+        "replyKeyboardRemove": {},
+        "additionalFields": {
+          "fileName": "={{ $binary.data.fileName }}",
+          "reply_to_message_id": "={{ $('SetVars').first().json.ChannelInformation.MessageID }}"
+        }
+      },
+      "id": "91740355-0e9a-419f-8acf-1d12c289d95b",
+      "name": "Send an audio file1",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        832,
+        1072
+      ],
+      "webhookId": "65658b15-b836-45b8-ad1d-b9f9aaf9a191",
+      "typeVersion": 1.2,
+      "alwaysOutputData": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('SetVars').first().json.ChannelInformation.ChannelID }}",
+        "text": "Creating response...",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "8681fc30-c673-4c1d-a1b4-b5716dc8fc18",
+      "name": "Log2",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        0,
+        1184
+      ],
+      "webhookId": "f8db2ebb-8cd2-4273-bb76-959974dc104a",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cleanOutput = () => {\n    const input = $('SetVars').first().json.AgentOutput?.response;\n\n    if (!input || typeof input !== 'string') {\n        return [{ json: { output: 'Error: Input data not found.' } }];\n    }\n\n    // Remove <think> blocks\n    let output = input.replace(/<\\s*\\/?\\s*think\\s*[^>]*>.*?<\\s*\\/?\\s*think\\s*[^>]*>/gis, '');\n\n    // Split on newlines and filter out reasoning lines\n    const reasoningPatterns = [\n        /^okay[,\\s]/i,\n        /^let me\\s/i,\n        /^i need to\\s/i,\n        /^i should\\s/i,\n        /^since there/i,\n        /^the user/i,\n        /^therefore/i,\n        /^so i'll/i,\n        /^alright/i,\n        /^make sure/i,\n        /^i'll make/i,\n        /^first[,\\s]/i,\n    ];\n\n    const lines = output.split('\\n').map(l => l.trim()).filter(Boolean);\n    const responseLines = lines.filter(line => \n        !reasoningPatterns.some(pattern => pattern.test(line))\n    );\n\n    output = responseLines.length > 0 ? responseLines.join(' ') : lines[lines.length - 1];\n\n    // Remove HTML, markdown, emojis, quotes\n    output = output.replace(/<[^>]*>/g, '');\n    output = output.replace(/^#{1,6}\\s|^\\s*>\\s|^\\s*[-*]{3,}\\s*$/gm, '');\n    output = output.replace(/(\\*\\*|__|\\*|_|`|\\[.*?\\]\\(.*?\\))/g, '');\n    output = output.replace(/[\\p{Emoji_Presentation}\\p{Extended_Pictographic}]/gu, '');\n    output = output.replace(/\"/g, '');\n    output = output.replace(/[\\n\\s]+/g, ' ').trim();\n\n    return [{ json: { output } }];\n};\nreturn cleanOutput();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        1184
+      ],
+      "id": "1c269f14-0950-4470-94e6-43ea2a9bf302",
+      "name": "Sanitized text"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('SetVars').first().json.ChannelInformation.ChannelID }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "87b33162-82e8-4c6e-88b0-7b5c62279a94",
+      "name": "Send a text message1",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        832,
+        864
+      ],
+      "webhookId": "74a4bb34-26e8-45bb-9f33-d126526ff832",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let output = $('SetVars').first().json.AgentOutput.response || '';\n\n// Remove <think> blocks — closed and unclosed\noutput = output.replace(/<think>[\\s\\S]*?<\\/think>/gi, '');\noutput = output.replace(/<think>[\\s\\S]*/gi, '');\n\n// Clean up excessive whitespace but preserve newlines for readability\noutput = output.replace(/\\n{3,}/g, '\\n\\n').trim();\n\nreturn { output };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        864
+      ],
+      "id": "b18515df-f041-404a-b6fc-3d9936044a98",
+      "name": "Text_Output"
+    },
+    {
+      "parameters": {
+        "content": "## Text answer\nSend back a text massage to telegram"
+      },
+      "id": "77c296fe-8559-4f61-b38d-e65608686fc4",
+      "name": "Sticky Note8",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        480,
+        688
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "let output = $input.first().json.output || '';\n\n// Remove <think> blocks — closed and unclosed\noutput = output.replace(/<think>[\\s\\S]*?<\\/think>/gi, '');\noutput = output.replace(/<think>[\\s\\S]*/gi, '');\n\noutput = output.replace(/\\n{3,}/g, '\\n\\n').trim();\n\nreturn { output };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        672
+      ],
+      "id": "14c492ec-ef7c-45ec-935d-bdd8174c562e",
+      "name": "Text_Output1"
+    },
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"input\": \"string\"\n}"
+      },
+      "id": "d8d77726-d330-4bdd-bf79-c12a39519a37",
+      "typeVersion": 1.1,
+      "name": "Start",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        -1040,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = JSON.parse($input.first().json.input);\nreturn parsed;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        864
+      ],
+      "id": "da2445e7-4177-4de3-ad37-a9dd6907aad6",
+      "name": "ParseInput"
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $input.first().json;\n\nreturn {\n  InputType: input.InputType ?? \"unknown\",\n  RequestInput: {\n    input: input.RequestInput?.input ?? \"\"\n  },\n  ChannelInformation: {\n    ChannelID: input.ChannelInformation?.ChannelID ?? null,\n    MessageID: input.ChannelInformation?.MessageID ?? null\n  },\n  AgentOutput: {\n    response: input.AgentOutput?.response ?? \"\",\n    model: input.AgentOutput?.model ?? null,\n    tokens: {\n      prompt: input.AgentOutput?.tokens?.prompt ?? null,\n      completion: input.AgentOutput?.tokens?.completion ?? null,\n      total: input.AgentOutput?.tokens?.total ?? null\n    },\n    metadata: input.AgentOutput?.metadata ?? {}\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        864
+      ],
+      "id": "4afcce58-a54e-4dbf-925e-88e4d95ecb4e",
+      "name": "SetVars"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5473125d-e83d-449a-9693-548ededda3d2",
+                    "leftValue": "={{ $('SetVars').first().json.InputType }}",
+                    "rightValue": "chat",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "chat"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a2d6691c-beed-44d8-a67f-be43b28155df",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('SetVars').first().json.InputType }}",
+                    "rightValue": "text"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c1fefba4-93b4-4885-b7ca-c974ceec5e4e",
+                    "leftValue": "={{ $('SetVars').first().json.InputType }}",
+                    "rightValue": "voice",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Voice"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "21f8aac9-5413-49d7-8f67-009d375dac29",
+      "name": "Input Type",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        -384,
+        848
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://qwen-tts:8881/tts",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"{{ $('Sanitized text').first().json.output }}\",\n  \"language\": \"English\",\n  \"instruct\": \"A composed middle-aged british male announcer with a tenor, low, rich and magnetic voice, a steady speaking speed and clear articulation, is suitable for news broadcasting or documentary commentary. \"\n}",
+        "options": {}
+      },
+      "id": "e5e7e347-4ac8-4c1d-b9e3-435c33c69fbf",
+      "name": "Qwen TTS HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        400,
+        1184
+      ],
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "tts-check-001",
+              "leftValue": "={{ $binary?.data?.fileSize }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        1184
+      ],
+      "id": "b415dba7-8ce4-487e-b407-fe584f0bcfcd",
+      "name": "TTS Succeeded?"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('SetVars').first().json.ChannelInformation.ChannelID }}",
+        "text": "={{ $('Sanitized text').first().json.output }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "reply_to_message_id": "={{ $('SetVars').first().json.ChannelInformation.MessageID }}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        832,
+        1264
+      ],
+      "id": "65babcc0-039d-4a7f-b388-6c0747f974a7",
+      "name": "TTS Fallback - Send Text",
+      "webhookId": "tts-fallback-webhook-001",
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Log2": {
+      "main": [
+        [
+          {
+            "node": "Sanitized text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text_Output": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitized text": {
+      "main": [
+        [
+          {
+            "node": "Qwen TTS HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "ParseInput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ParseInput": {
+      "main": [
+        [
+          {
+            "node": "SetVars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SetVars": {
+      "main": [
+        [
+          {
+            "node": "Input Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Type": {
+      "main": [
+        [
+          {
+            "node": "Text_Output1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text_Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qwen TTS HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "TTS Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TTS Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Send an audio file1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TTS Fallback - Send Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "6db0b489-82e0-4399-847f-4c88789026bc",
+  "meta": {
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "D5CmEZRYTq20ffd6",
+  "tags": []
+}

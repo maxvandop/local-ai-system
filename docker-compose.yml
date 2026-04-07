@@ -84,9 +84,10 @@ services:
     entrypoint: /bin/sh
     command:
       - "-c"
-      - "n8n import:credentials --separate --input=/demo-data/credentials && n8n import:workflow --separate --input=/demo-data/workflows"
+      - "n8n import:credentials --separate --input=/demo-data/credentials && n8n import:workflow --separate --input=/demo-data/workflows && n8n import:workflow --separate --input=/workflows"
     volumes:
       - ./n8n/demo-data:/demo-data
+      - ./n8n/workflows:/workflows
     depends_on:
       postgres:
         condition: service_healthy
@@ -182,6 +183,17 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+
+  kroki:
+    image: yuzutech/kroki:latest
+    container_name: kroki
+    hostname: kroki
+    networks: ['local-bridge']
+    restart: on-failure:5
+    ports:
+      - "8100:8000"
+    environment:
+      - KROKI_MAX_URI_LENGTH=8192
 
   ollama-gpu:
     profiles: ["gpu-nvidia", "all-gpu"]

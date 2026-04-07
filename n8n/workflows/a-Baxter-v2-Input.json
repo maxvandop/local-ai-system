@@ -1,0 +1,679 @@
+{
+  "name": "a-Baxter-v2-Input",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {
+          "download": true
+        }
+      },
+      "id": "77e54f0f-951f-44ed-a09a-81724b9d5581",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "position": [
+        -4688,
+        1136
+      ],
+      "webhookId": "45216889-bb42-4faa-9add-da37ed69a94d",
+      "typeVersion": 1.2,
+      "alwaysOutputData": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $('Telegram Trigger').item.json.message.voice.file_id }}",
+        "additionalFields": {}
+      },
+      "id": "00bd75a7-faf2-4fcc-9c11-81ff359608f9",
+      "name": "Get Voice File",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        -3472,
+        1232
+      ],
+      "webhookId": "a21d8565-8589-48bd-93db-f3b91ef33a0e",
+      "typeVersion": 1.1,
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3f22a586-7d56-4168-8bfe-7bb42d556fc9",
+                    "leftValue": "={{ $json.chatInput }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "chat"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "a2d6691c-beed-44d8-a67f-be43b28155df",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    },
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": ""
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "6ce5f222-d555-470b-862d-e132b9a5fb72",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    },
+                    "leftValue": "={{ $json.message.voice.file_id }}",
+                    "rightValue": ""
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "voice"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f8288199-ed55-467a-bee1-64832adfa505",
+      "name": "Message Type Switch",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        -3888,
+        1024
+      ],
+      "typeVersion": 3.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "d2e36e10-3ffc-47ab-bf1a-3c9639b0106a",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.message.from.id }}",
+              "rightValue": 8497733638
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "48ca200b-f1ab-495f-9530-869be21ce751",
+      "name": "Authorization Check If",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        -4464,
+        1136
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "chatId": "={{ json.message.from.id }}",
+        "text": "I am sorry, you have no access to my services.",
+        "additionalFields": {}
+      },
+      "id": "1e989a9d-7164-4446-9939-61dac675d3c5",
+      "name": "Send a text message",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        -4240,
+        1248
+      ],
+      "webhookId": "d09549d0-70bd-434a-8ade-2b06e93ceff0",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://whisper:5001/transcribe",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "multipart/form-data"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "=audio_file",
+              "inputDataFieldName": "=data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "799b335c-b963-4601-889e-a04fcf901c9f",
+      "name": "Whisper ASR HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -3280,
+        1232
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "action": "generate",
+        "dataPropertyName": "key"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        -4240,
+        1040
+      ],
+      "id": "0787b542-68c0-450a-a130-005a890aadef",
+      "name": "Crypto"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "Processing request...",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "8de932fd-c64d-477b-9af6-e03055d4c537",
+      "name": "Log1",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        -3072,
+        1232
+      ],
+      "webhookId": "55a38f6d-b094-48a6-9296-b53a8a87d8f4",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "Transcribing audio...",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "f5b674c3-975b-48fd-b9cc-fa0246692579",
+      "name": "Log",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        -3664,
+        1232
+      ],
+      "webhookId": "ce79a115-eebe-4f80-baf2-eab2b743cb5b",
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $('Whisper ASR HTTP Request').first().json.text\n\nreturn {input}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2864,
+        1232
+      ],
+      "id": "7b37059f-7b99-413d-b4ee-229d01e60c56",
+      "name": "Audio_Input"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -4256,
+        816
+      ],
+      "id": "51065035-fc1c-4ce3-952c-73fe263c6f83",
+      "name": "When chat message received",
+      "webhookId": "9a846ada-2e88-4690-8a8a-42f636e967fa"
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $('Telegram Trigger').first().json.message.text\n\nreturn {input}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2864,
+        1040
+      ],
+      "id": "bb89b1c2-c647-47bc-9bc1-ada60b9959b7",
+      "name": "Text_Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $input.first().json.chatInput\n\nreturn {input}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2864,
+        848
+      ],
+      "id": "595536c3-ce00-4ced-a391-7d9159fdd73d",
+      "name": "Chat_Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $input.first().json.input\n\nreturn {input};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2576,
+        1040
+      ],
+      "id": "8eee2a3f-3dd4-441b-a972-3199581f4fb2",
+      "name": "InputContent"
+    },
+    {
+      "parameters": {
+        "jsCode": "let inputType = \"\";\n\ntry { $('Chat_Input').first(); inputType = \"chat\"; } catch(e) {}\ntry { if (!inputType) { $('Text_Input').first(); inputType = \"text\"; } } catch(e) {}\ntry { if (!inputType) { $('Audio_Input').first(); inputType = \"voice\"; } } catch(e) {}\n\nreturn { inputType };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2368,
+        1040
+      ],
+      "id": "ea337dd6-3d6a-43e7-8204-59a8275ac0e0",
+      "name": "InputType"
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputType = $('InputType').first().json.inputType;\nconst input = $('InputContent').first().json.input;\n\nlet channelID = \"\";\nlet messageID = \"\";\n\ntry {\n  const telegram = $('Telegram Trigger').first().json;\n  channelID = $('Telegram Trigger').first().json.message.chat.id;\n  messageID = $('Telegram Trigger').first().json.message.message_id;\n} catch(e) {}\n\nreturn [{\n  json: {\n    InputType: inputType,\n    RequestInput: {\n      input: input\n    },\n    ChannelInformation: {\n      ChannelID: channelID,\n      MessageID: messageID\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2144,
+        1040
+      ],
+      "id": "f26c2927-1676-4191-8097-dbe54c6a015a",
+      "name": "Agent_Input"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "U0nZpwWv8Mr2DoHh",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/U0nZpwWv8Mr2DoHh",
+          "cachedResultName": "b-Baxter-v2-Devider"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "input": "={{ $('Agent_Input').first().json }}"
+          },
+          "matchingColumns": [
+            "input"
+          ],
+          "schema": [
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -1792,
+        1040
+      ],
+      "name": "Call Baxter-v2-devider",
+      "id": "6f2ae5f3-9e67-484a-a23d-f5fc9f21ede0"
+    }
+  ],
+  "pinData": {
+    "Telegram Trigger": [
+      {
+        "json": {
+          "update_id": 657475563,
+          "message": {
+            "message_id": 698,
+            "from": {
+              "id": 8497733638,
+              "is_bot": false,
+              "first_name": "Max",
+              "last_name": "van Dop",
+              "language_code": "en"
+            },
+            "chat": {
+              "id": 8497733638,
+              "first_name": "Max",
+              "last_name": "van Dop",
+              "type": "private"
+            },
+            "date": 1763505999,
+            "forward_origin": {
+              "type": "user",
+              "sender_user": {
+                "id": 8497733638,
+                "is_bot": false,
+                "first_name": "Max",
+                "last_name": "van Dop",
+                "language_code": "en"
+              },
+              "date": 1763504998
+            },
+            "forward_from": {
+              "id": 8497733638,
+              "is_bot": false,
+              "first_name": "Max",
+              "last_name": "van Dop",
+              "language_code": "en"
+            },
+            "forward_date": 1763504998,
+            "text": "Go create an image of the sea!"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Get Voice File": {
+      "main": [
+        [
+          {
+            "node": "Whisper ASR HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Authorization Check If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message Type Switch": {
+      "main": [
+        [
+          {
+            "node": "Chat_Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text_Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorization Check If": {
+      "main": [
+        [
+          {
+            "node": "Crypto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Whisper ASR HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Log1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crypto": {
+      "main": [
+        [
+          {
+            "node": "Message Type Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log1": {
+      "main": [
+        [
+          {
+            "node": "Audio_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log": {
+      "main": [
+        [
+          {
+            "node": "Get Voice File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio_Input": {
+      "main": [
+        [
+          {
+            "node": "InputContent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Message Type Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text_Input": {
+      "main": [
+        [
+          {
+            "node": "InputContent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat_Input": {
+      "main": [
+        [
+          {
+            "node": "InputContent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "InputContent": {
+      "main": [
+        [
+          {
+            "node": "InputType",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "InputType": {
+      "main": [
+        [
+          {
+            "node": "Agent_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent_Input": {
+      "main": [
+        [
+          {
+            "node": "Call Baxter-v2-devider",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "97b9bc07-cd38-4029-b723-54519fc6f950",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "2tGiBJAAGnua1K1p",
+  "tags": []
+}

@@ -17,6 +17,7 @@ echo ""
 echo "📁 Creating directory structure..."
 mkdir -p n8n/demo-data/credentials
 mkdir -p n8n/demo-data/workflows
+mkdir -p n8n/workflows
 mkdir -p postgres_init
 mkdir -p postgres_storage
 mkdir -p shared

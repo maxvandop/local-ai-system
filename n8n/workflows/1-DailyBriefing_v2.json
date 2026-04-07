@@ -1,0 +1,231 @@
+{
+  "name": "1-DailyBriefing_v2",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "fb44465c-6f93-463d-96a1-d26623646a24",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT title, priority, due_date, category, completed\nFROM tasks\nWHERE channel_id = 8497733638\nAND completed = FALSE\nAND (due_date <= CURRENT_DATE + INTERVAL '1 day' OR due_date IS NULL)\nORDER BY due_date ASC NULLS LAST, priority DESC\nLIMIT 5;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        0
+      ],
+      "id": "9561d7ae-4a8b-4ee8-8a26-50a5ce9ce428",
+      "name": "Execute a SQL query",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT r.message, r.remind_at, t.title as task_title\nFROM reminders r\nLEFT JOIN tasks t ON r.task_id = t.id\nWHERE r.channel_id = 8497733638\nAND r.sent = FALSE\nAND r.remind_at::date = CURRENT_DATE\nORDER BY r.remind_at ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        432,
+        0
+      ],
+      "id": "243b30ee-0682-400a-91f0-6780ba7afc0b",
+      "name": "Execute a SQL query1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://wttr.in/The Hague?format=3",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        0
+      ],
+      "id": "e4efb40f-ef0c-48d5-bfdc-2f02fe2c9fab",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const tasks = $('Execute a SQL query').all();\nconst reminders = $('Execute a SQL query1').all();\nconst weather = $('HTTP Request').first().json.data.trim();\nconst calEvents = $('GetTodayEvents').all();\n\nconst today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });\n\nconst formatDate = (dateStr) => {\n  if (!dateStr) return null;\n  const d = new Date(dateStr);\n  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });\n};\n\nconst formatTime = (dateStr) => {\n  if (!dateStr) return null;\n  const d = new Date(dateStr);\n  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });\n};\n\nlet message = `Good morning! \\nBriefing for ${today}.\\n\\n`;\nmessage += `${weather}\\n`;\n\n// Calendar events\nconst validEvents = calEvents.filter(e => e.json && e.json.summary);\nif (validEvents.length > 0) {\n  message += `\\nCalendar:\\n`;\n  validEvents.forEach(e => {\n    const ev = e.json;\n    let timeStr = '';\n    if (ev.start?.dateTime) {\n      timeStr = ` — ${formatTime(ev.start.dateTime)}`;\n      if (ev.end?.dateTime) timeStr += `–${formatTime(ev.end.dateTime)}`;\n    } else if (ev.start?.date) {\n      timeStr = ' — All day';\n    }\n    const loc = ev.location ? ` @ ${ev.location}` : '';\n    message += `${ev.summary}${timeStr}${loc}\\n`;\n  });\n}\n\n// Tasks\nconst validTasks = tasks.filter(t => t.json.title);\nif (validTasks.length > 0) {\n  message += `\\nTasks:\\n`;\n  validTasks.forEach(t => {\n    const due = t.json.due_date ? ` — due ${formatDate(t.json.due_date)}` : '';\n    message += `${t.json.title} [${t.json.priority}]${due}\\n`;\n  });\n}\n\n// Reminders\nconst validReminders = reminders.filter(r => r.json.remind_at && (r.json.message || r.json.task_title));\nif (validReminders.length > 0) {\n  message += `\\nReminders:\\n`;\n  validReminders.forEach(r => {\n    const time = formatTime(r.json.remind_at);\n    const msg = r.json.message || r.json.task_title;\n    message += `${time}: ${msg}\\n`;\n  });\n}\n\nreturn [{ json: { message } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        0
+      ],
+      "id": "744331bd-9cb3-4136-b7bb-1d71535dd1be",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "chatId": "=8497733638",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1264,
+        0
+      ],
+      "id": "657cc5ec-5d2e-4916-a3f3-970cd403dc6a",
+      "name": "Send a text message",
+      "webhookId": "0cfc4e09-71fd-47db-b150-7beaa8c59bd5",
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "limit": 15,
+        "options": {
+          "orderBy": "startTime"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        848,
+        0
+      ],
+      "id": "8ba7393f-9683-4983-ab80-8df825b0f18b",
+      "name": "GetTodayEvents",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "vbr0M6KRwoLDAOWC",
+          "name": "Google Calendar account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "GetTodayEvents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetTodayEvents": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "aadf13f2-3583-4878-a987-32c824db606f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "zUzxLJObxlnoZk15",
+  "tags": []
+}

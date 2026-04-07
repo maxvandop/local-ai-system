@@ -1,0 +1,526 @@
+{
+  "name": "5-JobRunner",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1328,
+        352
+      ],
+      "id": "c57b458f-e898-4f73-935f-e5ea5badde28",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, channel_id, title, instructions, agent, task_id\nFROM agent_jobs\nWHERE status = 'pending'\nORDER BY created_at ASC\nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1120,
+        352
+      ],
+      "id": "76af5f86-94ae-4522-aaf2-05323fbcb625",
+      "name": "GetPendingJob",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "jr-check-001",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -928,
+        352
+      ],
+      "id": "cff84415-2bdf-4478-a13f-849972995d88",
+      "name": "Has Pending Job?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agent_jobs\nSET status = 'running', started_at = NOW()\nWHERE id = {{ $('GetPendingJob').first().json.id }}\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -720,
+        336
+      ],
+      "id": "9286fdeb-bb10-4a50-834b-d5145ffcda1e",
+      "name": "MarkRunning",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "jr-route-001",
+                    "leftValue": "={{ $('GetPendingJob').first().json.agent }}",
+                    "rightValue": "research",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "research"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "jr-route-002",
+                    "leftValue": "={{ $('GetPendingJob').first().json.agent }}",
+                    "rightValue": "baxter",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "baxter"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "jr-route-003",
+                    "leftValue": "={{ $('GetPendingJob').first().json.agent }}",
+                    "rightValue": "project_manager",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "project_manager"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -464,
+        304
+      ],
+      "id": "20d5c0fe-6e03-4e5f-85f0-ba0a51f20899",
+      "name": "RouteToAgent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('GetPendingJob').first().json.instructions }}",
+        "options": {
+          "systemMessage": "You are Baxter's research agent. Execute the given research task thoroughly. Return a concise summary of findings — plain text, no markdown, maximum 500 characters."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        -144
+      ],
+      "id": "cc6e0aad-ec6f-4854-91fb-e2bdfd1bc6dc",
+      "name": "ResearchSubAgent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        80
+      ],
+      "id": "d725c388-1dbc-4b55-b390-f9fe27153aa9",
+      "name": "OllamaResearch",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolWikipedia",
+      "typeVersion": 1,
+      "position": [
+        64,
+        80
+      ],
+      "id": "bf2616dc-2230-4625-941c-036ea663647e",
+      "name": "WikipediaResearch"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('GetPendingJob').first().json.instructions }}",
+        "options": {
+          "systemMessage": "You are Baxter, executing an autonomous background job. Complete the task as instructed. Return a concise one-line summary of what was done or found."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        272
+      ],
+      "id": "31513442-7e2a-4bab-92e2-bc452978705b",
+      "name": "BaxterSubAgent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        496
+      ],
+      "id": "84781385-dbef-4b24-b8f0-ae1cbb73421d",
+      "name": "OllamaBaxter",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst job = $('GetPendingJob').first().json;\nconst jobId = job.id;\n\n// Try to get output from whichever sub-agent ran\nlet result = '';\ntry { result = $('ResearchSubAgent').first().json.output || ''; } catch(e) {}\ntry { if (!result) result = $('BaxterSubAgent').first().json.output || ''; } catch(e) {}\nif (!result) result = 'Job completed — no output returned.';\n\n// Truncate to one-liner\nresult = result.replace(/\\n+/g, ' ').trim().slice(0, 500);\n\nreturn [{ json: { jobId, result, channelId: job.channel_id, title: job.title } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        -144
+      ],
+      "id": "4b35b3dc-cb40-4f9e-aa0b-32f1b0649876",
+      "name": "MergeResult"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agent_jobs\nSET status = 'done',\n    result = '{{ $json.result.replace(/'/g, \"''\") }}',\n    completed_at = NOW()\nWHERE id = {{ $json.jobId }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        496,
+        -144
+      ],
+      "id": "d845edab-e67a-4209-a709-d0d413c8570d",
+      "name": "WriteResult",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('MergeResult').first().json.channelId }}",
+        "text": "=✅ Job done: {{ $('MergeResult').first().json.title }}\n\n{{ $('MergeResult').first().json.result }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        704,
+        -144
+      ],
+      "id": "d151b149-8f05-414f-aaef-cd8fdcb013e5",
+      "name": "NotifyMax",
+      "webhookId": "jr-notify-webhook-001",
+      "credentials": {
+        "telegramApi": {
+          "id": "N8xecKSVAm46sKrZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agent_jobs\nSET status = 'failed',\n    result = 'Job failed — check n8n execution logs.',\n    completed_at = NOW()\nWHERE id = {{ $('GetPendingJob').first().json.id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -112,
+        720
+      ],
+      "id": "a5251758-195a-4528-a4ca-d67dc2d3e905",
+      "name": "MarkFailed",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "GetPendingJob",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetPendingJob": {
+      "main": [
+        [
+          {
+            "node": "Has Pending Job?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Pending Job?": {
+      "main": [
+        [
+          {
+            "node": "MarkRunning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MarkRunning": {
+      "main": [
+        [
+          {
+            "node": "RouteToAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RouteToAgent": {
+      "main": [
+        [
+          {
+            "node": "ResearchSubAgent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BaxterSubAgent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BaxterSubAgent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MarkFailed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OllamaResearch": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "ResearchSubAgent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WikipediaResearch": {
+      "ai_tool": [
+        [
+          {
+            "node": "ResearchSubAgent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OllamaBaxter": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "BaxterSubAgent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ResearchSubAgent": {
+      "main": [
+        [
+          {
+            "node": "MergeResult",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BaxterSubAgent": {
+      "main": [
+        [
+          {
+            "node": "MergeResult",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MergeResult": {
+      "main": [
+        [
+          {
+            "node": "WriteResult",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WriteResult": {
+      "main": [
+        [
+          {
+            "node": "NotifyMax",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Amsterdam",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "3a48c522-0356-4611-b1cf-998bee371333",
+  "meta": {
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "LCfoRwf4rTQ15tSc",
+  "tags": []
+}
