@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentTask",
+  "description": "Schema for a single agent or orchestrator task",
+  "type": "object",
+  "required": ["id", "name", "type", "status", "agent", "prompts", "requiresApproval", "metadata"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique task identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Short human-readable task name"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["orchestrator", "task"],
+      "description": "Orchestrator delegates to subtasks; task performs actual work"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "awaiting_approval", "completed", "failed"],
+      "description": "Current state of the task"
+    },
+    "agent": {
+      "type": "string",
+      "description": "Agent or sub-agent responsible for this task"
+    },
+    "dependsOn": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Array of task IDs that must be completed before this task can start"
+    },
+    "requiresApproval": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, task moves to awaiting_approval before it can be marked completed"
+    },
+    "prompts": {
+      "type": "object",
+      "required": ["user", "core", "context"],
+      "properties": {
+        "user": {
+          "type": "string",
+          "description": "The original user prompt or instruction"
+        },
+        "core": {
+          "type": "string",
+          "description": "Shared system prompt applied to all agents"
+        },
+        "context": {
+          "type": "string",
+          "description": "Task-specific prompt describing expected tool usage and output format"
+        }
+      }
+    },
+    "contextFile": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "Path to an .md file with additional context for this task"
+    },
+    "projectId": {
+      "type": ["integer", "null"],
+      "default": null,
+      "description": "Optional ID linking this task to a project (references projects.id)"
+    },
+    "parentTaskId": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "ID of the parent orchestrator task, null for root-level tasks"
+    },
+    "previousTaskId": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "ID of the previous sibling task at the same level, null for the first task"
+    },
+    "nextTaskId": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "ID of the next sibling task at the same level, null for the last task"
+    },
+    "reminders": {
+      "type": "array",
+      "default": [],
+      "description": "Zero or more reminders linked to this task (mirrors reminders table)",
+      "items": {
+        "type": "object",
+        "required": ["id", "channelId", "remindAt"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Unique reminder identifier (reminders.id)"
+          },
+          "channelId": {
+            "type": "integer",
+            "description": "Telegram channel/chat ID (reminders.channel_id)"
+          },
+          "taskId": {
+            "type": ["integer", "null"],
+            "default": null,
+            "description": "Linked task ID (reminders.task_id)"
+          },
+          "subtaskId": {
+            "type": ["integer", "null"],
+            "default": null,
+            "description": "Linked subtask ID (reminders.subtask_id)"
+          },
+          "remindAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 datetime when the reminder fires (reminders.remind_at)"
+          },
+          "message": {
+            "type": ["string", "null"],
+            "default": null,
+            "description": "Reminder message text (reminders.message)"
+          },
+          "sent": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether this reminder has been sent (reminders.sent)"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the reminder was created (reminders.created_at)"
+          }
+        }
+      }
+    },
+    "subtasks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Array of task IDs managed by this orchestrator (only used when type is orchestrator)"
+    },
+    "result": {
+      "default": null,
+      "description": "Output produced by the task upon completion"
+    },
+    "response": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "Final response to send back to the user"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["inputType"],
+      "properties": {
+        "inputType": {
+          "type": "string",
+          "description": "Origin type of the input (e.g. telegram, webhook, scheduled)"
+        },
+        "telegram": {
+          "type": ["object", "null"],
+          "default": null,
+          "description": "Telegram-specific message info, null when input is not from Telegram",
+          "properties": {
+            "channelId": {
+              "type": ["string", "null"],
+              "default": null,
+              "description": "Telegram channel or chat ID"
+            },
+            "messageId": {
+              "type": ["string", "null"],
+              "default": null,
+              "description": "Telegram message ID for replying"
+            }
+          }
+        }
+      }
+    }
+  }
+}

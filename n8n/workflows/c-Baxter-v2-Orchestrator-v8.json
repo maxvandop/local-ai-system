@@ -1,29 +1,27 @@
 {
-  "name": "c-Baxter-v2-Orchestrator-v7",
+  "name": "c-Baxter-v2-Orchestrator-v8",
   "nodes": [
     {
       "parameters": {
-        "model": "qwen3.5:9b",
+        "model": "google_gemma-4-E4B-it-Q8_0.gguf",
         "options": {
+          "presencePenalty": 1.5,
           "temperature": 0.7,
-          "topK": 20,
-          "topP": 0.8,
-          "numThread": 16,
-          "presencePenalty": 1.5
+          "topP": 0.8
         }
       },
-      "id": "02d9e944-b3be-40d7-9f5d-9755eb017742",
-      "name": "Ollama Chat Model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "id": "e5d8c65d-6de7-4d2d-95e6-acc92ea46d99",
+      "name": "LlamaCpp Main",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "position": [
         64,
         256
       ],
       "typeVersion": 1,
       "credentials": {
-        "ollamaApi": {
-          "id": "d4PPJUecv5laznT9",
-          "name": "Ollama account"
+        "openAiApi": {
+          "id": "KwvObCRrsz5xzoGV",
+          "name": "LlamaCpp"
         }
       }
     },
@@ -33,7 +31,7 @@
         "sessionKey": "=baxter-main",
         "contextWindowLength": 2
       },
-      "id": "6aaf78af-fd43-4b0c-a2b0-3d918779f16c",
+      "id": "9b965e18-e57f-45d7-b036-49d9bedaabaa",
       "name": "Simple Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "position": [
@@ -47,7 +45,7 @@
         "inputSource": "jsonExample",
         "jsonExample": "{\n  \"input\": \"string\"\n}"
       },
-      "id": "6bd216ad-c8d5-4d48-8ac2-ef045577a20a",
+      "id": "4f99a58b-76d2-4838-8179-213224fc307c",
       "typeVersion": 1.1,
       "name": "Start",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
@@ -95,7 +93,7 @@
         2064,
         0
       ],
-      "id": "2c1f659c-a17a-4180-9847-6437709a5da3",
+      "id": "cc02b129-8ea9-4bc3-84ab-7876dc249ec4",
       "name": "Call 'z-Baxter-v2-Communication'"
     },
     {
@@ -108,12 +106,12 @@
         224,
         0
       ],
-      "id": "d3937e0e-d111-4d23-b687-27dca1039494",
+      "id": "cd7b7f4a-ca7d-462e-8680-19c137cbf9a9",
       "name": "ParseInput"
     },
     {
       "parameters": {
-        "jsCode": "let input = $input.first().json;\n\nreturn {\n  InputType: input.InputType ?? \"unknown\",\n  RequestInput: {\n    input: (input.RequestInput?.input ?? \"\") + \"\\n\\n###OUTPUT###\\nStart your final answer with the exact token RESPONSE: on its own line.\"\n  },\n  ChannelInformation: {\n    ChannelID: input.ChannelInformation?.ChannelID ?? null,\n    MessageID: input.ChannelInformation?.MessageID ?? null\n  }\n};"
+        "jsCode": "let input = $input.first().json;\n\n// Detect task JSON format vs legacy format\nconst isTaskJson = input.prompts !== undefined;\n\nconst inputType = isTaskJson ? (input.metadata?.inputType ?? 'unknown')       : (input.InputType ?? 'unknown');\nconst userInput = isTaskJson ? (input.prompts?.user ?? '')                    : (input.RequestInput?.input ?? '');\nconst channelID = isTaskJson ? (input.metadata?.telegram?.channelId ?? null) : (input.ChannelInformation?.ChannelID ?? null);\nconst messageID = isTaskJson ? (input.metadata?.telegram?.messageId ?? null) : (input.ChannelInformation?.MessageID ?? null);\n\nreturn {\n  InputType: inputType,\n  RequestInput: {\n    input: userInput + \"\\n\\n###OUTPUT###\\nStart your final answer with the exact token RESPONSE: on its own line.\"\n  },\n  ChannelInformation: {\n    ChannelID: channelID,\n    MessageID: messageID\n  }\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -121,12 +119,12 @@
         432,
         0
       ],
-      "id": "b714ccce-584e-4c7c-b1c4-47f2f84bfed1",
+      "id": "021f1dea-3ad6-4079-9173-16680810c6a2",
       "name": "SetVars"
     },
     {
       "parameters": {
-        "jsCode": "let vars = $('SetVars').first().json;\nlet agentOutput = $('Agent').first().json;\n\nconst cleanResponse = (input) => {\n    if (!input || typeof input !== 'string') return '';\n\n    // Convert escaped newlines to real newlines\n    let output = input.replace(/\\\\n/g, '\\n');\n\n    // Remove <think> blocks — handles both closed and unclosed tags\n    output = output.replace(/<think>[\\s\\S]*?<\\/think>/gi, '');\n    output = output.replace(/<think>[\\s\\S]*/gi, '');\n\n    // Try to extract everything after the last RESPONSE: marker\n    const matches = [...output.matchAll(/RESPONSE:\\s*/g)];\n    if (matches.length > 0) {\n        const last = matches[matches.length - 1];\n        const extracted = output.slice(last.index + last[0].length).trim();\n        if (extracted.length > 0) {\n            return extracted.length > 3000 ? extracted.slice(0, 3000) + '...' : extracted;\n        }\n    }\n\n    // Fallback: RESPONSE: marker missing — strip reasoning line by line\n    const lines = output.split('\\n').map(l => l.trim()).filter(Boolean);\n\n    const isReasoningLine = (line) => {\n        const patterns = [\n            /^(okay|ok|alright|right|so|well)[,\\s]/i,\n            /^let me\\s/i,\n            /^i('ll| will| need to| should| must| can| am going to)\\s/i,\n            /^i('ve| have) (retrieved|fetched|found|got|collected)/i,\n            /^now i('ll| need| should| will| can)/i,\n            /^i'll present/i,\n            /^(first|now|next|then|finally)[,\\s]/i,\n            /^the user\\s/i,\n            /^the user (wants|asked|needs|is asking)/i,\n            /^they (want|asked|need|said)/i,\n            /^(looking at|checking|reviewing|analyzing|considering)/i,\n            /^(since|given that|because|as)\\s/i,\n            /^(therefore|thus|so|hence)\\s/i,\n            /^my (response|answer|plan|approach)/i,\n            /^let me (format|organize|structure|present|summarize|summarise)/i,\n            /^here('s| is) (a summary|the|what)/i,\n            /^this (seems|looks|appears|is a)/i,\n            /^it (seems|looks|appears)/i,\n            /^OUTPUT:/i,\n            /^Start your final answer/i,\n            /^##OUTPUT/i,\n            /^\\/no_think/i,\n        ];\n        return patterns.some(p => p.test(line));\n    };\n\n    const responseLines = lines.filter(line => !isReasoningLine(line));\n\n    if (responseLines.length > 0) {\n        const cleaned = responseLines.join('\\n').trim();\n        return cleaned.length > 3000 ? cleaned.slice(0, 3000) + '...' : cleaned;\n    }\n\n    // Absolute last resort — return the last non-empty line\n    const lastLine = lines[lines.length - 1] || '';\n    return lastLine.length > 3000 ? lastLine.slice(0, 3000) + '...' : lastLine;\n};\n\nlet response = cleanResponse(agentOutput.output ?? '');\n\n// Never pass empty string downstream\nif (!response || response.trim().length === 0) {\n    response = 'Sorry, I ran into an issue formulating a response. Please try again.';\n}\n\nreturn {\n    ...vars,\n    AgentOutput: {\n        response,\n        model: null,\n        tokens: {\n            prompt: null,\n            completion: null,\n            total: null\n        },\n        metadata: {}\n    }\n};"
+        "jsCode": "let vars = $('SetVars').first().json;\nlet rawOutput = $('Agent').first().json.output ?? '';\n\nconst cleanResponse = (input) => {\n    if (!input || typeof input !== 'string') return '';\n\n    let output = input.replace(/\\\\n/g, '\\n');\n\n    // Strip <think> blocks\n    output = output.replace(/<think>[\\s\\S]*?<\\/think>/gi, '');\n    output = output.replace(/<think>[\\s\\S]*/gi, '');\n\n    // Strip Gemma 4 <|channel>thought...<channel|> blocks\n    output = output.replace(/<\\|channel>thought[\\s\\S]*?<channel\\|>/gi, '');\n    output = output.replace(/<\\|channel>thought[\\s\\S]*/gi, '');\n\n    output = output.trim();\n\n    // Extract everything after the last RESPONSE: marker\n    const matches = [...output.matchAll(/RESPONSE:\\s*/g)];\n    if (matches.length > 0) {\n        const last = matches[matches.length - 1];\n        const extracted = output.slice(last.index + last[0].length).trim();\n        if (extracted.length > 0) return extracted.slice(0, 3000) + (extracted.length > 3000 ? '...' : '');\n    }\n\n    // Fallback: filter out reasoning lines\n    const reasoningPatterns = [\n        /^(okay|ok|alright|right|so|well)[,\\s]/i,\n        /^let me\\s/i,\n        /^i('ll| will| need to| should| must| can| am going to)\\s/i,\n        /^i('ve| have) (retrieved|fetched|found|got|collected)/i,\n        /^now i('ll| need| should| will| can)/i,\n        /^(first|now|next|then|finally)[,\\s]/i,\n        /^the user[\\s(wants|asked|needs)]/i,\n        /^they (want|asked|need|said)/i,\n        /^(looking at|checking|reviewing|analyzing|considering)/i,\n        /^(since|given that|because|as)\\s/i,\n        /^(therefore|thus|so|hence)\\s/i,\n        /^my (response|answer|plan|approach)/i,\n        /^let me (format|organize|structure|present|summarize|summarise)/i,\n        /^here('s| is) (a summary|the|what)/i,\n        /^this (seems|looks|appears|is a)/i,\n        /^it (seems|looks|appears)/i,\n        /^(OUTPUT:|##OUTPUT|Start your final answer|\\/no_think)/i,\n    ];\n\n    const lines = output.split('\\n').map(l => l.trim()).filter(Boolean);\n    const responseLines = lines.filter(l => !reasoningPatterns.some(p => p.test(l)));\n    const result = (responseLines.length > 0 ? responseLines : [lines[lines.length - 1] || '']).join('\\n').trim();\n    return result.slice(0, 3000) + (result.length > 3000 ? '...' : '');\n};\n\nlet response = cleanResponse(rawOutput);\nif (!response || response.trim().length === 0) {\n    response = 'Sorry, I ran into an issue formulating a response. Please try again.';\n}\n\nreturn {\n    ...vars,\n    AgentOutput: {\n        response,\n        model: null,\n        tokens: { prompt: null, completion: null, total: null },\n        metadata: {}\n    }\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -134,7 +132,7 @@
         1504,
         0
       ],
-      "id": "a3044825-d341-4589-8e64-761703bb274f",
+      "id": "94b920f7-2728-4303-bb87-dae35dcda791",
       "name": "SetOutput"
     },
     {
@@ -147,7 +145,7 @@
           "returnIntermediateSteps": true
         }
       },
-      "id": "4a60a364-1e51-4ee5-8e61-1aba4de7730a",
+      "id": "b05b36f6-f95b-4556-bf81-d31f821dcbca",
       "name": "Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "position": [
@@ -259,7 +257,7 @@
         1776,
         0
       ],
-      "id": "2f93d784-a1a4-4703-93e7-4c4294b6b5e2",
+      "id": "0659e651-1616-4ac5-854f-985a3562e926",
       "name": "Insert rows in a table",
       "credentials": {
         "postgres": {
@@ -282,7 +280,7 @@
         384,
         400
       ],
-      "id": "1fb59e82-68f8-446f-8815-0b78bf4bd341",
+      "id": "2147383e-2e6e-4339-a558-c5062bce4c88",
       "name": "GetSchema",
       "credentials": {
         "postgres": {
@@ -305,7 +303,7 @@
         528,
         400
       ],
-      "id": "ee576371-336b-458e-8d4a-41b41a89382f",
+      "id": "a66fd643-5998-4378-bd5b-7a68e43b5d16",
       "name": "ExecQuery",
       "credentials": {
         "postgres": {
@@ -322,7 +320,7 @@
         1440,
         1296
       ],
-      "id": "73dc561b-90d5-426c-8d51-2272c75e00b3",
+      "id": "97c9c19c-c1d8-4a08-8985-20adaf947c5f",
       "name": "Wikipedia"
     },
     {
@@ -339,26 +337,26 @@
         1168,
         816
       ],
-      "id": "32bd9cec-d3ee-4d0c-9f28-c60e03fd5cbd",
+      "id": "b180b5f5-7b55-4d58-87a6-a945c11c3aa5",
       "name": "Research Agent"
     },
     {
       "parameters": {
-        "model": "qwen3.5:9b",
+        "model": "google_gemma-4-E4B-it-Q8_0.gguf",
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1,
       "position": [
         992,
         1024
       ],
-      "id": "2750d394-06f8-4bf1-886b-1ed3dae3943b",
-      "name": "Ollama Chat Model2",
+      "id": "21b90c03-90c8-4909-ab03-e021af6d260e",
+      "name": "LlamaCpp Research",
       "credentials": {
-        "ollamaApi": {
-          "id": "d4PPJUecv5laznT9",
-          "name": "Ollama account"
+        "openAiApi": {
+          "id": "KwvObCRrsz5xzoGV",
+          "name": "LlamaCpp"
         }
       }
     },
@@ -384,13 +382,13 @@
         1312,
         1296
       ],
-      "id": "69734a6c-c887-42b8-b515-b57a5472b075",
+      "id": "34674e67-3fff-4827-b889-6b882da4252f",
       "name": "DuckDuckGo"
     },
     {
       "parameters": {
         "toolDescription": "Get current weather and forecast for any location. Provide the city name only as the location parameter, no country or comma. Example: Rotterdam",
-        "url": "=https://wttr.in/{{ encodeURIComponent($fromAI('location', 'The city name only, no country. Example: Rotterdam')) }}?format=j1&units=m",
+        "url": "=https://wttr.in/{{ encodeURIComponent($fromAI('location', 'The city name only, no country. Example: Rotterdam')) }}?format=j1",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequestTool",
@@ -399,7 +397,7 @@
         1184,
         1296
       ],
-      "id": "964cd846-3da3-4145-89e8-4f6d30e4c479",
+      "id": "d6c7fb8f-a6d1-42ff-a2a0-1008f76b7ab9",
       "name": "WeatherAPI"
     },
     {
@@ -419,7 +417,7 @@
         1008,
         400
       ],
-      "id": "ea83d7d9-a52e-42c7-bb9c-5869f7b53b3d",
+      "id": "65ecfd5e-3ead-4da9-a383-a5d1ade2161b",
       "name": "Qdrant Vector Store",
       "credentials": {
         "qdrantApi": {
@@ -438,7 +436,7 @@
         1008,
         608
       ],
-      "id": "4c5c8101-06c3-4aaa-a2e6-9c698570a8d1",
+      "id": "4d875242-a690-4f6b-8b9e-33975d1f7153",
       "name": "Embeddings Ollama",
       "credentials": {
         "ollamaApi": {
@@ -449,21 +447,21 @@
     },
     {
       "parameters": {
-        "model": "qwen3.5:9b",
+        "model": "google_gemma-4-E4B-it-Q8_0.gguf",
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1,
       "position": [
         1552,
         1008
       ],
-      "id": "8ef40637-0b6d-4b5c-9036-68a8ba78764d",
-      "name": "Ollama Chat Model3",
+      "id": "4f9163e1-536d-4f5c-8ca1-d7dc22f614ba",
+      "name": "LlamaCpp PM",
       "credentials": {
-        "ollamaApi": {
-          "id": "d4PPJUecv5laznT9",
-          "name": "Ollama account"
+        "openAiApi": {
+          "id": "KwvObCRrsz5xzoGV",
+          "name": "LlamaCpp"
         }
       }
     },
@@ -482,7 +480,7 @@
         1712,
         816
       ],
-      "id": "0fec4219-3bbe-49eb-91fe-2bf91848b7bc",
+      "id": "330f6d11-ff6f-41c9-9ae6-236839a8fa47",
       "name": "Project Manager"
     },
     {
@@ -499,7 +497,7 @@
         1792,
         1232
       ],
-      "id": "cacef6d1-33b3-41e6-a577-266b5a79f4ba",
+      "id": "4c7218ab-db0c-453b-b4d1-9359d7fb3d6c",
       "name": "GetTasks",
       "credentials": {
         "postgres": {
@@ -520,7 +518,7 @@
         1136,
         1024
       ],
-      "id": "c190ff98-9030-4efc-8406-cfd4b398c7a8",
+      "id": "ae994e4c-4dce-44f4-8302-f228e31a5fa7",
       "name": "Memory RS"
     },
     {
@@ -535,7 +533,7 @@
         1696,
         1008
       ],
-      "id": "1e8da262-a99d-4204-9386-f3c8aaeb7c6d",
+      "id": "2b3c121b-b860-4438-ab97-161b078e22d2",
       "name": "Memory PM"
     },
     {
@@ -552,7 +550,7 @@
         1920,
         1232
       ],
-      "id": "86099d32-a7c2-41ce-ae4b-cc22e0c157df",
+      "id": "41e48799-1efd-4b1c-851f-21bf3a77265a",
       "name": "GetSubtasks",
       "credentials": {
         "postgres": {
@@ -575,7 +573,7 @@
         1792,
         1408
       ],
-      "id": "75454b96-b47a-4e48-b1e2-d4bc6dd6059c",
+      "id": "2a71f99c-d121-4220-ac3f-711f9e983da0",
       "name": "UpsertTask",
       "credentials": {
         "postgres": {
@@ -598,7 +596,7 @@
         1920,
         1408
       ],
-      "id": "0b89ef17-111a-467f-a0a6-d78d536fcb14",
+      "id": "75668101-637f-4eb8-aec0-7cbbfbba8be8",
       "name": "UpsertSubtask",
       "credentials": {
         "postgres": {
@@ -621,7 +619,7 @@
         2048,
         1232
       ],
-      "id": "bbf88ef1-3d44-494d-8140-737122f3d0c7",
+      "id": "9d940c3d-2a81-4c26-a6d5-316e3b005f34",
       "name": "GetReminders",
       "credentials": {
         "postgres": {
@@ -644,7 +642,7 @@
         2048,
         1408
       ],
-      "id": "1d0a7dca-2474-40ea-bdfa-55c1804c8c15",
+      "id": "2ace9142-61d9-402d-8465-87b65b936197",
       "name": "UpsertReminders",
       "credentials": {
         "postgres": {
@@ -667,7 +665,7 @@
         1664,
         1232
       ],
-      "id": "865d058b-534e-47d2-b4c1-81cc9099d7c4",
+      "id": "9c08f950-3fce-48c1-a691-6669504692a9",
       "name": "GetProjects",
       "credentials": {
         "postgres": {
@@ -690,7 +688,7 @@
         1664,
         1408
       ],
-      "id": "eb1dca87-8b83-4db1-a231-aa9ec8db1350",
+      "id": "c5bdc340-80e8-4dcf-b7a3-cfb0c7b7494e",
       "name": "UpsertProject",
       "credentials": {
         "postgres": {
@@ -711,7 +709,7 @@
         624,
         0
       ],
-      "id": "d86044e6-959d-4408-b35f-73d54be0e7bf",
+      "id": "5a51795c-837e-4089-ae9a-0d403cec634e",
       "name": "FetchProfile",
       "alwaysOutputData": true,
       "credentials": {
@@ -724,7 +722,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\ntry {\n  const allItems = $input.all();\n  const profile = (allItems.length > 0 && allItems[0].json && allItems[0].json.channel_id != null)\n    ? allItems[0].json\n    : null;\n\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n\n  const hasProfile = profile !== null;\n  const onboardingStep = hasProfile ? (profile.onboarding_step ?? 1) : 1;\n\n  // ── Current datetime injected on every execution ────────────────────────\n  const now = new Date();\n  const timeContext = `DATE & TIME:\nCurrent datetime: ${now.toISOString()}\nLocal datetime:   ${now.toLocaleString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\nTimezone:         Europe/Amsterdam\nDay of week:      ${now.toLocaleDateString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long' })}`;\n\n  let systemPrompt = '';\n\n  // ── ONBOARDING MODE ────────────────────────────────────────────────────────\n  if (!hasProfile || onboardingStep > 0) {\n    const step = onboardingStep || 1;\n\n    const steps = {\n      1: `You are setting yourself up as the user's personal AI assistant.\n\nYour ONLY task right now is to warmly greet the user and ask this one question:\n\"Before we dive in, I'd love to define my own identity. What should I call myself, and how would you describe my personality and purpose? For example: 'Baxter — sharp and direct — helps me stay on top of work and life.'\"\n\nWhen they respond, call the UpdateProfile tool with:\n- soul: their answer, preserved exactly\n- next_onboarding_step: 2\nLeave all other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      2: `You are Baxter, a personal AI assistant currently in setup.\n\nYour soul has been defined. Now ask:\n\"Great. Now tell me a bit about you — your work, interests, goals, whatever you'd like me to keep in mind long-term.\"\n\nWhen they respond, call UpdateProfile with:\n- user_profile: a structured summary of what they shared (name, role, interests, goals)\n- next_onboarding_step: 3\nLeave other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      3: `You are Baxter, a personal AI assistant currently in setup.\n\nOne last question:\n\"Almost done — how do you prefer I communicate? Concise and direct, or more detailed? Any language or format preferences?\"\n\nWhen they respond, call UpdateProfile with:\n- preferences: their answer\n- next_onboarding_step: 0\nLeave other fields as empty strings. After saving, confirm setup is complete and you are ready to help.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n    };\n\n    systemPrompt = `/no_think\\n${timeContext}\\n\\n` + (steps[step] || steps[1]);\n\n  // ── OPERATION MODE ──────────────────────────────────────────────────────────\n  } else {\n    const soul        = profile.soul          || 'Baxter — curious, helpful and critical — personal AI assistant';\n    const userProfile = profile.user_profile  || '';\n    const prefs       = profile.preferences   || 'Clear and direct';\n    const focus       = profile.current_focus || '';\n\n    systemPrompt  = `/no_think\\n`;\n    systemPrompt += `${timeContext}\\n\\n`;\n    systemPrompt += `You are ${soul}.\\n\\n`;\n    systemPrompt += `LANGUAGE: Always respond in English only, regardless of input language.\\n\\n`;\n    systemPrompt += `FORMAT: Use markdown where it aids readability — headers and bullets for lists, news summaries and structured data; plain prose for conversational replies. When presenting news, use: **Title** — one sentence summary. Source, date. Be direct and concise. Maximum 3 sentences for simple factual answers.\\n\\n`;\n\n    if (userProfile) systemPrompt += `ABOUT THE USER:\\n${userProfile}\\n\\n`;\n    if (prefs)       systemPrompt += `COMMUNICATION STYLE: ${prefs}\\n\\n`;\n    if (focus)       systemPrompt += `CURRENT FOCUS: ${focus}\\n\\n`;\n\n    systemPrompt += `PROFILE: Update the user profile proactively using UpdateProfile whenever the user shares new information, changes a preference, or shifts focus.\\n\\n`;\n\n    systemPrompt += `TOOLS: Use tools when they add value — do not call tools unnecessarily on every message.\n1. Use LongTermMemory when the user references past events, asks what you remember, or the topic benefits from historical context.\n2. Use ExecQuery only when you need specific recent conversation details.\n3. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n4. Use CalendarManager for events, meetings, appointments or scheduling.\n5. Use NewsTool for current events, local news, tech or AI news, or anything recently changed.\n6. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n7. Only call GetSchema if you need to discover table structure.\n\nJOB DELEGATION: When a request will take significant time or multiple steps, use CreateJob to run it in the background. Assign the appropriate agent (research, baxter, project_manager). Start immediately — do not ask for approval. Tell Max the job has started and what to expect. Use GetJobStatus when Max asks for an update.\n\nVISUALS: When explaining a system, process, architecture or set of connected ideas, proactively generate a sketch without asking first. Use SketchAgent to produce a Mermaid diagram and send it as an image via Telegram. Supported: architecture diagrams, flowcharts, mind maps, sequence diagrams.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n  }\n\n  return [{ json: { systemPrompt, onboardingStep, hasProfile } }];\n\n} catch (error) {\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n  const now = new Date();\n\n  const systemPrompt = `/no_think\nDATE & TIME: ${now.toISOString()} (Europe/Amsterdam)\n\nYou are Baxter, a personal AI assistant. You are curious, helpful and critical.\n\nLANGUAGE: Always respond in English only.\nFORMAT: use markdown where it aids readability (headers, bullets for lists and summaries), plain prose for conversational replies. When presenting news summaries, use this structure: a bold headline, one sentence summary, and source + date on the same line. Separate items with a blank line. Be direct and concise. \n\nTOOLS: Always check available tools before responding. Follow this order:\n1. Call LongTermMemory on every message to retrieve relevant context.\n2. Call ExecQuery for recent history. Filter WHERE channel_id = ${channelID} ORDER BY created_at DESC LIMIT 10.\n3. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n4. Use CalendarManager for events, meetings, appointments or scheduling.\n5. Use NewsTool for current events, local news or anything recently changed.\n6. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n\nJOB DELEGATION: Use CreateJob for multi-step or time-consuming tasks. Start immediately. Tell Max what's running.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n\n  return [{ json: { systemPrompt, onboardingStep: 0, hasProfile: false, fallback: true } }];\n}\n"
+        "jsCode": "\ntry {\n  const allItems = $input.all();\n  const profile = (allItems.length > 0 && allItems[0].json && allItems[0].json.channel_id != null)\n    ? allItems[0].json\n    : null;\n\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n\n  const hasProfile = profile !== null;\n  const onboardingStep = hasProfile ? (profile.onboarding_step ?? 1) : 1;\n\n  // ── Current datetime injected on every execution ────────────────────────\n  const now = new Date();\n  const timeContext = `DATE & TIME:\nCurrent datetime: ${now.toISOString()}\nLocal datetime:   ${now.toLocaleString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\nTimezone:         Europe/Amsterdam\nDay of week:      ${now.toLocaleDateString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long' })}`;\n\n  let systemPrompt = '';\n\n  // ── ONBOARDING MODE ────────────────────────────────────────────────────────\n  if (!hasProfile || onboardingStep > 0) {\n    const step = onboardingStep || 1;\n\n    const steps = {\n      1: `You are setting yourself up as the user's personal AI assistant.\n\nYour ONLY task right now is to warmly greet the user and ask this one question:\n\"Before we dive in, I'd love to define my own identity. What should I call myself, and how would you describe my personality and purpose? For example: 'Baxter — sharp and direct — helps me stay on top of work and life.'\"\n\nWhen they respond, call the UpdateProfile tool with:\n- soul: their answer, preserved exactly\n- next_onboarding_step: 2\nLeave all other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      2: `You are Baxter, a personal AI assistant currently in setup.\n\nYour soul has been defined. Now ask:\n\"Great. Now tell me a bit about you — your work, interests, goals, whatever you'd like me to keep in mind long-term.\"\n\nWhen they respond, call UpdateProfile with:\n- user_profile: a structured summary of what they shared (name, role, interests, goals)\n- next_onboarding_step: 3\nLeave other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      3: `You are Baxter, a personal AI assistant currently in setup.\n\nOne last question:\n\"Almost done — how do you prefer I communicate? Concise and direct, or more detailed? Any language or format preferences?\"\n\nWhen they respond, call UpdateProfile with:\n- preferences: their answer\n- next_onboarding_step: 0\nLeave other fields as empty strings. After saving, confirm setup is complete and you are ready to help.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n    };\n\n    systemPrompt = `${timeContext}\\n\\n` + (steps[step] || steps[1]);\n\n  // ── OPERATION MODE ──────────────────────────────────────────────────────────\n  } else {\n    const soul        = profile.soul          || 'Baxter — curious, helpful and critical — personal AI assistant';\n    const userProfile = profile.user_profile  || '';\n    const prefs       = profile.preferences   || 'Clear and direct';\n    const focus       = profile.current_focus || '';\n\n    systemPrompt  = `${timeContext}\\n\\n`;\n    systemPrompt += `${timeContext}\\n\\n`;\n    systemPrompt += `You are ${soul}.\\n\\n`;\n    systemPrompt += `LANGUAGE: Always respond in English only, regardless of input language.\\n\\n`;\n    systemPrompt += `FORMAT: Use markdown where it aids readability — headers and bullets for lists, news summaries and structured data; plain prose for conversational replies. When presenting news, use: **Title** — one sentence summary. Source, date. Be direct and concise. Maximum 3 sentences for simple factual answers.\\n\\n`;\n\n    if (userProfile) systemPrompt += `ABOUT THE USER:\\n${userProfile}\\n\\n`;\n    if (prefs)       systemPrompt += `COMMUNICATION STYLE: ${prefs}\\n\\n`;\n    if (focus)       systemPrompt += `CURRENT FOCUS: ${focus}\\n\\n`;\n\n    systemPrompt += `PROFILE: Update the user profile proactively using UpdateProfile whenever the user shares new information, changes a preference, or shifts focus.\\n\\n`;\n\n    systemPrompt += `TOOLS: Use tools when they add value — do not call tools unnecessarily on every message.\n1. Use LongTermMemory when the user references past events, asks what you remember, or the topic benefits from historical context.\n2. Use ExecQuery only when you need specific recent conversation details.\n3. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n4. Use CalendarManager for events, meetings, appointments or scheduling.\n5. Use NewsTool for current events, local news, tech or AI news, or anything recently changed.\n6. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n7. Only call GetSchema if you need to discover table structure.\n\nTASK DELEGATION: When a request will take significant time or multiple steps, use CreateTask to run it in the background. Assign the appropriate agent (research, baxter, project_manager). Start immediately — do not ask for approval. Tell Max the task has started and what to expect. Use GetTaskStatus when Max asks for an update.\n\nVISUALS: When explaining a system, process, architecture or set of connected ideas, proactively generate a sketch without asking first. Use SketchAgent to produce a Mermaid diagram and send it as an image via Telegram. Supported: architecture diagrams, flowcharts, mind maps, sequence diagrams.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n  }\n\n  return [{ json: { systemPrompt, onboardingStep, hasProfile } }];\n\n} catch (error) {\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n  const now = new Date();\n\n  const systemPrompt = `DATE & TIME: ${now.toISOString()} (Europe/Amsterdam)\n\nYou are Baxter, a personal AI assistant. You are curious, helpful and critical.\n\nLANGUAGE: Always respond in English only.\nFORMAT: use markdown where it aids readability (headers, bullets for lists and summaries), plain prose for conversational replies. When presenting news summaries, use this structure: a bold headline, one sentence summary, and source + date on the same line. Separate items with a blank line. Be direct and concise. \n\nTOOLS: Always check available tools before responding. Follow this order:\n1. Call LongTermMemory on every message to retrieve relevant context.\n2. Call ExecQuery for recent history. Filter WHERE channel_id = ${channelID} ORDER BY created_at DESC LIMIT 10.\n3. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n4. Use CalendarManager for events, meetings, appointments or scheduling.\n5. Use NewsTool for current events, local news or anything recently changed.\n6. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n\nTASK DELEGATION: Use CreateTask to run a request in the background when it requires research, multiple tool calls, significant content generation, or the user says: research, look into, compile, draft, or summarize. Call it immediately without asking for approval. Write a self-contained instructions prompt \u2014 include all context, the agent has no memory. Tell the user what is running and that they will be notified when done. Use GetTaskStatus for updates.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n\n  return [{ json: { systemPrompt, onboardingStep: 0, hasProfile: false, fallback: true } }];\n}\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -732,7 +730,7 @@
         816,
         0
       ],
-      "id": "9b4951fc-e351-4141-8fc2-57214ba27834",
+      "id": "3a1199ae-cd36-4965-8c91-88eb8c074205",
       "name": "BuildSystemPrompt"
     },
     {
@@ -749,7 +747,7 @@
         688,
         400
       ],
-      "id": "dfa3c1f1-9b88-401c-8e7c-e15ba138d122",
+      "id": "c1041a61-90e2-4101-a060-0961d3accb71",
       "name": "UpdateProfile",
       "credentials": {
         "postgres": {
@@ -760,23 +758,21 @@
     },
     {
       "parameters": {
-        "model": "qwen3.5:9b",
-        "options": {
-          "numThread": 16
-        }
+        "model": "google_gemma-4-E4B-it-Q8_0.gguf",
+        "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1,
       "position": [
         2192,
         992
       ],
-      "id": "107b87d2-bcec-4247-a177-20836636c76c",
-      "name": "OllamaCalendar",
+      "id": "f9905d72-bb53-4e56-a5eb-d734ec528312",
+      "name": "LlamaCpp Calendar",
       "credentials": {
-        "ollamaApi": {
-          "id": "d4PPJUecv5laznT9",
-          "name": "Ollama account"
+        "openAiApi": {
+          "id": "KwvObCRrsz5xzoGV",
+          "name": "LlamaCpp"
         }
       }
     },
@@ -792,7 +788,7 @@
         2368,
         992
       ],
-      "id": "d1525965-ef2b-44d5-8acf-3be6f4695637",
+      "id": "d0e96ba5-178e-4e0b-aeaf-f10028bc47ee",
       "name": "MemoryCalendar"
     },
     {
@@ -817,7 +813,7 @@
         2544,
         992
       ],
-      "id": "5a875f50-5407-4d72-adc0-81ddb9e0f0b8",
+      "id": "0c0b9b45-d136-4a3d-94cd-b2b4723c9ec0",
       "name": "GetEvents",
       "credentials": {
         "googleCalendarOAuth2Api": {
@@ -850,7 +846,7 @@
         2704,
         992
       ],
-      "id": "209f0604-ccc1-4b68-8fd7-a1bf91dc6917",
+      "id": "b52e4df8-b8b5-4a88-ae5a-e410e8820b6d",
       "name": "CreateEvent",
       "credentials": {
         "googleCalendarOAuth2Api": {
@@ -884,7 +880,7 @@
         2864,
         992
       ],
-      "id": "6356590c-309a-40ca-8244-9ba2dc005921",
+      "id": "973f1b78-cb65-4fdf-a142-978bf313528e",
       "name": "UpdateEvent",
       "credentials": {
         "googleCalendarOAuth2Api": {
@@ -913,7 +909,7 @@
         3024,
         992
       ],
-      "id": "3fdf2427-0b4a-4cfa-b296-debc1913b48e",
+      "id": "b46b82fe-0196-4c42-899e-2ca984048f73",
       "name": "DeleteEvent",
       "credentials": {
         "googleCalendarOAuth2Api": {
@@ -936,7 +932,7 @@
         2368,
         816
       ],
-      "id": "47c1ddb8-8010-43d8-ad83-869b4c085da9",
+      "id": "2af03d90-5f8d-4d55-96d2-deec0ba4a5f5",
       "name": "CalendarManager"
     },
     {
@@ -953,7 +949,7 @@
         832,
         400
       ],
-      "id": "39780fac-a854-448c-af68-e930bb11d4c8",
+      "id": "30825f7a-f603-42fa-ad16-e53f7f1c70e0",
       "name": "NewsTool",
       "credentials": {
         "postgres": {
@@ -965,9 +961,9 @@
     {
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Create a background job for Baxter to execute asynchronously. Use this when a request will take significant time, requires multiple steps, or can be done while Max does other things. The job starts immediately. Agents available: 'research' for web research and information gathering, 'baxter' for general tasks and analysis, 'project_manager' for task/project operations.",
+        "toolDescription": "Create a background task for Baxter to execute asynchronously. Use this when a request will take significant time, requires multiple steps, or can be done while Max does other things. The task starts immediately. Agents available: 'research' for web research and information gathering, 'baxter' for general tasks and analysis, 'project_manager' for task/project operations.",
         "operation": "executeQuery",
-        "query": "INSERT INTO agent_jobs (channel_id, title, instructions, agent, task_id)\nVALUES (\n    {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n    '{{ $fromAI(\"title\", \"One-line description of the job\", \"string\") }}',\n    '{{ $fromAI(\"instructions\", \"Full instructions for the executing agent\", \"string\") }}',\n    '{{ $fromAI(\"agent\", \"Agent to use: research, baxter, or project_manager\", \"string\") }}',\n    {{ $fromAI(\"task_id\", \"Linked task ID as integer, or null if not applicable\", \"number\") }}\n)\nRETURNING id, title, agent;",
+        "query": "INSERT INTO agent_tasks (name, type, status, agent, channel_id, input_type, prompts, requires_approval)\nVALUES (\n    '{{ $fromAI(\"title\", \"One-line description of the task\", \"string\") }}',\n    'task',\n    'pending',\n    '{{ $fromAI(\"agent\", \"Agent to use: research, baxter, or project_manager\", \"string\") }}',\n    {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n    '{{ $('SetVars').first().json.InputType }}',\n    jsonb_build_object('user', '', 'core', 'core-prompt-v1', 'context', '{{ $fromAI(\"instructions\", \"Full instructions for the executing agent\", \"string\") }}'),\n    false\n)\nRETURNING id::text, name as title, agent;",
         "options": {}
       },
       "type": "n8n-nodes-base.postgresTool",
@@ -976,8 +972,8 @@
         2096,
         240
       ],
-      "id": "b3a861db-0e84-4cd0-8250-f2da7c4a15e6",
-      "name": "CreateJob",
+      "id": "06dedf2d-1947-490d-a689-747e8e41226d",
+      "name": "CreateTask",
       "credentials": {
         "postgres": {
           "id": "EGPB6szdcUJ4lGdK",
@@ -988,9 +984,9 @@
     {
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Check the status of background jobs. Use when Max asks for an update on a running job, or to show what jobs are pending, running or recently completed.",
+        "toolDescription": "Check the status of background tasks. Use when Max asks for an update on a running task, or to show what tasks are pending, running or recently completed.",
         "operation": "executeQuery",
-        "query": "SELECT id, title, agent, status, result,\n       TO_CHAR(created_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as created_at,\n       TO_CHAR(completed_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as completed_at\nFROM agent_jobs\nWHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nORDER BY created_at DESC\nLIMIT 10;",
+        "query": "SELECT id::text, name as title, agent, status, result::text,\n       TO_CHAR(created_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as created_at,\n       TO_CHAR(updated_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as completed_at\nFROM agent_tasks\nWHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nAND type = 'task'\nORDER BY created_at DESC\nLIMIT 10;",
         "options": {}
       },
       "type": "n8n-nodes-base.postgresTool",
@@ -999,8 +995,8 @@
         2288,
         256
       ],
-      "id": "0f943064-0b9a-4588-904d-485c83bf0a04",
-      "name": "GetJobStatus",
+      "id": "c58461a6-6a43-4340-bd80-a2e6e28726ba",
+      "name": "GetTaskStatus",
       "credentials": {
         "postgres": {
           "id": "EGPB6szdcUJ4lGdK",
@@ -1009,7 +1005,18 @@
       }
     }
   ],
-  "pinData": {},
+  "pinData": {
+    "Start": [
+      {
+        "json": {
+          "input": "{\"id\":null,\"name\":\"Hello\",\"type\":\"orchestrator\",\"status\":\"pending\",\"agent\":\"baxter-orchestrator\",\"dependsOn\":[],\"requiresApproval\":false,\"prompts\":{\"user\":\"Hello\",\"core\":\"core-prompt-v1\",\"context\":\"\"},\"contextFile\":null,\"projectId\":null,\"parentTaskId\":null,\"previousTaskId\":null,\"nextTaskId\":null,\"reminders\":[],\"subtasks\":[],\"result\":null,\"response\":null,\"metadata\":{\"inputType\":\"text\",\"telegram\":{\"channelId\":8497733638,\"messageId\":1495}}}"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
   "connections": {
     "Simple Memory": {
       "ai_memory": [
@@ -1022,7 +1029,7 @@
         ]
       ]
     },
-    "Ollama Chat Model": {
+    "LlamaCpp Main": {
       "ai_languageModel": [
         [
           {
@@ -1132,7 +1139,7 @@
         ]
       ]
     },
-    "Ollama Chat Model2": {
+    "LlamaCpp Research": {
       "ai_languageModel": [
         [
           {
@@ -1198,7 +1205,7 @@
         ]
       ]
     },
-    "Ollama Chat Model3": {
+    "LlamaCpp PM": {
       "ai_languageModel": [
         [
           {
@@ -1374,7 +1381,7 @@
         ]
       ]
     },
-    "OllamaCalendar": {
+    "LlamaCpp Calendar": {
       "ai_languageModel": [
         [
           {
@@ -1451,7 +1458,7 @@
         ]
       ]
     },
-    "CreateJob": {
+    "CreateTask": {
       "ai_tool": [
         [
           {
@@ -1462,7 +1469,7 @@
         ]
       ]
     },
-    "GetJobStatus": {
+    "GetTaskStatus": {
       "ai_tool": [
         [
           {
@@ -1480,10 +1487,11 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "075d938c-4b6d-4231-9c69-c13ec278130f",
+  "versionId": "6e0c8512-d13f-4a28-919e-b6e2a5260934",
   "meta": {
+    "templateCredsSetupCompleted": true,
     "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
   },
-  "id": "usIykDmzlBnZzHcS",
+  "id": "JUNY9EjOfjLnmgnM",
   "tags": []
 }

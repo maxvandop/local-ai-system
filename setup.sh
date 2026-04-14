@@ -89,6 +89,12 @@ OLLAMA_HOST=ollama:11434
 # ── ComfyUI (GPU image generation, optional) ─────────────
 USER_ID=1000
 GROUP_ID=1000
+
+# ── llama.cpp server ──────────────────────────────────────
+# Set MODELS_PATH to the folder containing your GGUF files.
+# Set LLAMA_MODEL to the exact GGUF filename to load.
+MODELS_PATH=C:/Users/maxva/Models
+LLAMA_MODEL=your-model-q8_0.gguf
 EOF
 
     echo "✓ .env created with generated keys"
@@ -107,6 +113,8 @@ else
     grep -q "^OLLAMA_HOST="                     .env || MISSING_VARS+=("OLLAMA_HOST=ollama:11434")
     grep -q "^USER_ID="                         .env || MISSING_VARS+=("USER_ID=1000")
     grep -q "^GROUP_ID="                        .env || MISSING_VARS+=("GROUP_ID=1000")
+    grep -q "^MODELS_PATH="                     .env || MISSING_VARS+=("MODELS_PATH=C:/Users/maxva/Models")
+    grep -q "^LLAMA_MODEL="                     .env || MISSING_VARS+=("LLAMA_MODEL=your-model-q8_0.gguf")
 
     if [ ${#MISSING_VARS[@]} -gt 0 ]; then
         echo "  Adding missing variables:"

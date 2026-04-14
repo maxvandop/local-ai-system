@@ -221,3 +221,30 @@ services:
     <<: *init-ollama
     depends_on:
       - ollama-cpu
+
+  llama-cpp:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-cpp
+    hostname: llama-cpp
+    networks: ['local-bridge']
+    restart: on-failure:5
+    ports:
+      - "8082:8080"
+    volumes:
+      - ${MODELS_PATH:-C:/Users/maxva/Models}:/models:ro
+    command: >
+      --model /models/${LLAMA_MODEL}
+      --host 0.0.0.0
+      --port 8080
+      --n-gpu-layers 99
+      --ctx-size 16384
+      --n-predict -1
+      --parallel 2
+      --flash-attn on
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

@@ -1,0 +1,135 @@
+{
+  "tasks": [
+    {
+      "id": "orch-001",
+      "name": "Daily briefing",
+      "type": "orchestrator",
+      "status": "pending",
+      "agent": "briefing-orchestrator",
+      "dependsOn": [],
+      "requiresApproval": true,
+      "prompts": {
+        "user": "Give me my daily briefing",
+        "core": "core-prompt-v1",
+        "context": "Delegate calendar, email, and news tasks. Combine results into a single briefing. Present as a structured summary."
+      },
+      "contextFile": null,
+      "projectId": null,
+      "parentTaskId": null,
+      "previousTaskId": null,
+      "nextTaskId": null,
+      "reminders": [],
+      "subtasks": ["task-001", "task-002", "task-003"],
+      "result": null,
+      "response": null,
+      "metadata": {
+        "inputType": "telegram",
+        "telegram": {
+          "channelId": "123456789",
+          "messageId": "42"
+        }
+      }
+    },
+    {
+      "id": "task-001",
+      "name": "Summarize daily calendar",
+      "type": "task",
+      "status": "pending",
+      "agent": "calendar-agent",
+      "dependsOn": [],
+      "requiresApproval": false,
+      "prompts": {
+        "user": "Summarize my calendar for today",
+        "core": "core-prompt-v1",
+        "context": "Use Google Calendar tool. Return a bullet list of events with time, title, and location."
+      },
+      "contextFile": null,
+      "projectId": null,
+      "parentTaskId": "orch-001",
+      "previousTaskId": null,
+      "nextTaskId": "task-002",
+      "reminders": [],
+      "subtasks": [],
+      "result": null,
+      "response": null,
+      "metadata": {
+        "inputType": "telegram",
+        "telegram": {
+          "channelId": "123456789",
+          "messageId": "42"
+        }
+      }
+    },
+    {
+      "id": "task-002",
+      "name": "Summarize unread emails",
+      "type": "task",
+      "status": "pending",
+      "agent": "email-agent",
+      "dependsOn": [],
+      "requiresApproval": false,
+      "prompts": {
+        "user": "Summarize my unread emails",
+        "core": "core-prompt-v1",
+        "context": "Use email tool. Return sender, subject, and one-line summary per email. Flag anything urgent."
+      },
+      "contextFile": null,
+      "projectId": null,
+      "parentTaskId": "orch-001",
+      "previousTaskId": "task-001",
+      "nextTaskId": "task-003",
+      "reminders": [],
+      "subtasks": [],
+      "result": null,
+      "response": null,
+      "metadata": {
+        "inputType": "telegram",
+        "telegram": {
+          "channelId": "123456789",
+          "messageId": "42"
+        }
+      }
+    },
+    {
+      "id": "task-003",
+      "name": "Fetch news digest",
+      "type": "task",
+      "status": "pending",
+      "agent": "news-agent",
+      "dependsOn": [],
+      "requiresApproval": false,
+      "prompts": {
+        "user": "Get today's top news relevant to my interests",
+        "core": "core-prompt-v1",
+        "context": "Use news API tool. Return top 5 headlines with source and one-line summary. Filter by user interest profile."
+      },
+      "contextFile": "context/user-interests.md",
+      "projectId": 1,
+      "parentTaskId": "orch-001",
+      "previousTaskId": "task-002",
+      "nextTaskId": null,
+      "reminders": [
+        {
+          "id": 1,
+          "channelId": 123456789,
+          "taskId": null,
+          "subtaskId": null,
+          "remindAt": "2026-04-07T09:00:00Z",
+          "message": "News digest is ready for review",
+          "sent": false,
+          "createdAt": "2026-04-07T07:30:00Z"
+        }
+      ],
+      "subtasks": [],
+      "result": null,
+      "response": null,
+      "metadata": {
+        "inputType": "telegram",
+        "telegram": {
+          "channelId": "123456789",
+          "messageId": "42"
+        }
+      }
+    }
+  ]
+}

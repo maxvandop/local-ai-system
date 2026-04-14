@@ -376,7 +376,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const inputType = $('InputType').first().json.inputType;\nconst input = $('InputContent').first().json.input;\n\nlet channelID = \"\";\nlet messageID = \"\";\n\ntry {\n  const telegram = $('Telegram Trigger').first().json;\n  channelID = $('Telegram Trigger').first().json.message.chat.id;\n  messageID = $('Telegram Trigger').first().json.message.message_id;\n} catch(e) {}\n\nreturn [{\n  json: {\n    InputType: inputType,\n    RequestInput: {\n      input: input\n    },\n    ChannelInformation: {\n      ChannelID: channelID,\n      MessageID: messageID\n    }\n  }\n}];"
+        "jsCode": "const inputType = $('InputType').first().json.inputType;\nconst input = $('InputContent').first().json.input;\n\nlet channelId = null;\nlet messageId = null;\n\ntry {\n  channelId = $('Telegram Trigger').first().json.message.chat.id;\n  messageId = $('Telegram Trigger').first().json.message.message_id;\n} catch(e) {}\n\nconst taskName = input.length > 80 ? input.slice(0, 80) + '...' : input;\n\nreturn [{\n  json: {\n    id: null,\n    name: taskName,\n    type: 'orchestrator',\n    status: 'pending',\n    agent: 'baxter-orchestrator',\n    dependsOn: [],\n    requiresApproval: false,\n    prompts: {\n      user: input,\n      core: 'core-prompt-v1',\n      context: ''\n    },\n    contextFile: null,\n    projectId: null,\n    parentTaskId: null,\n    previousTaskId: null,\n    nextTaskId: null,\n    reminders: [],\n    subtasks: [],\n    result: null,\n    response: null,\n    metadata: {\n      inputType: inputType,\n      telegram: {\n        channelId: channelId,\n        messageId: messageId\n      }\n    }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -391,15 +391,15 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "U0nZpwWv8Mr2DoHh",
+          "value": "usIykDmzlBnZzHcS",
           "mode": "list",
-          "cachedResultUrl": "/workflow/U0nZpwWv8Mr2DoHh",
-          "cachedResultName": "b-Baxter-v2-Devider"
+          "cachedResultUrl": "/workflow/usIykDmzlBnZzHcS",
+          "cachedResultName": "c-Baxter-v2-Orchestrator-v7"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "input": "={{ $('Agent_Input').first().json }}"
+            "input": "={{ JSON.stringify($('Agent_Input').first().json) }}"
           },
           "matchingColumns": [
             "input"
@@ -421,12 +421,12 @@
         "options": {}
       },
       "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
+      "typeVersion": 1.3,
       "position": [
         -1792,
         1040
       ],
-      "name": "Call Baxter-v2-devider",
+      "name": "Call Baxter-v2-Orchestrator",
       "id": "6f2ae5f3-9e67-484a-a23d-f5fc9f21ede0"
     }
   ],
@@ -656,7 +656,7 @@
       "main": [
         [
           {
-            "node": "Call Baxter-v2-devider",
+            "node": "Call Baxter-v2-Orchestrator",
             "type": "main",
             "index": 0
           }
