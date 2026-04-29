@@ -91,7 +91,8 @@ try {
 ```
 ### 4. WriteVaultNote (toolCode — `@n8n/n8n-nodes-langchain.toolCode`)
 Agent calls this to create/overwrite a note. **Restricted to `Atlas/Baxter/` only** — the tool enforces this in code.
-`query` = JSON string: `{ "path": "Atlas/Baxter/filename.md", "content": "...", "tags": ["tag1"] }`
+`query` = object or JSON string with fields: `path`, `content`, `tags`.
+**Important:** models using structured tool calling pass `query` as a JS object, not a string. The code handles both (see below).
 
 Used when:
 - Max explicitly asks to save/remember something
@@ -104,8 +105,13 @@ The vault is mounted **read-write** (no `:ro`). The `Atlas/Baxter/` folder exist
 const fs = require('fs');
 const path = require('path');
 
+// query may arrive as a JS object (structured tool calling) or a JSON string
 let params;
-try { params = JSON.parse(query); } catch(e) { return 'Error: input must be a JSON string with path and content fields.'; }
+if (typeof query === 'object' && query !== null) {
+  params = query;
+} else {
+  try { params = JSON.parse(query); } catch(e) { return 'Error: could not parse input. Expected JSON with path and content fields.'; }
+}
 
 const notePath = (params.path || '').trim();
 const noteContent = (params.content || '').trim();
@@ -194,6 +200,23 @@ Code nodes and toolCode nodes run in a sandboxed task runner.
 - `require('child_process')` / `execSync` ❌ silently fails — catch block fires, no error shown
 
 `NODE_FUNCTION_ALLOW_BUILTIN=*` is already set in the `x-n8n` shared block in `docker-compose.yml`.
+
+### `query` input type in toolCode
+When a model uses structured tool calling, `query` arrives as a JS object — not a string. Calling `JSON.parse()` on an object produces `[object Object]` which fails silently. Always handle both:
+```js
+let params;
+if (typeof query === 'object' && query !== null) {
+  params = query;
+} else {
+  try { params = JSON.parse(query); } catch(e) { return 'Error: invalid input'; }
+}
+```
+
+### LLM token limits (`maxTokensToSample`)
+The main agent LLM node (`LlamaCpp Main`) has `maxTokensToSample: 8192` set in its options. Without this the model generates until llama.cpp's server cuts it off mid-JSON, causing `SyntaxError: Unterminated string` in tool call parsing.
+- llama.cpp server is configured with `--n-predict -1` (unlimited) and `--ctx-size 16384` — server is not the bottleneck
+- The n8n LangChain layer's `maxTokensToSample` is what matters
+- Keep content in toolCode tool calls concise — the tool description says max ~500 words
 
 ---
 
