@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "c-Baxter-v2-Orchestrator-v8",
   "nodes": [
     {
@@ -14,8 +14,8 @@
       "name": "LlamaCpp Main",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "position": [
-        64,
-        256
+        192,
+        288
       ],
       "typeVersion": 1,
       "credentials": {
@@ -35,8 +35,8 @@
       "name": "Simple Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "position": [
-        224,
-        256
+        352,
+        288
       ],
       "typeVersion": 1.3
     },
@@ -50,8 +50,8 @@
       "name": "Start",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "position": [
-        0,
-        0
+        -192,
+        -144
       ]
     },
     {
@@ -90,8 +90,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        2064,
-        0
+        2416,
+        -144
       ],
       "id": "cc02b129-8ea9-4bc3-84ab-7876dc249ec4",
       "name": "Call 'z-Baxter-v2-Communication'"
@@ -103,8 +103,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        224,
-        0
+        32,
+        -144
       ],
       "id": "cd7b7f4a-ca7d-462e-8680-19c137cbf9a9",
       "name": "ParseInput"
@@ -116,8 +116,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        432,
-        0
+        240,
+        -144
       ],
       "id": "021f1dea-3ad6-4079-9173-16680810c6a2",
       "name": "SetVars"
@@ -129,8 +129,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1504,
-        0
+        1856,
+        -144
       ],
       "id": "94b920f7-2728-4303-bb87-dae35dcda791",
       "name": "SetOutput"
@@ -149,8 +149,8 @@
       "name": "Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "position": [
-        1104,
-        0
+        1232,
+        32
       ],
       "typeVersion": 2
     },
@@ -254,8 +254,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        1776,
-        0
+        2128,
+        -144
       ],
       "id": "0659e651-1616-4ac5-854f-985a3562e926",
       "name": "Insert rows in a table",
@@ -277,8 +277,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        384,
-        400
+        2544,
+        288
       ],
       "id": "2147383e-2e6e-4339-a558-c5062bce4c88",
       "name": "GetSchema",
@@ -300,8 +300,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        528,
-        400
+        2688,
+        288
       ],
       "id": "a66fd643-5998-4378-bd5b-7a68e43b5d16",
       "name": "ExecQuery",
@@ -317,8 +317,8 @@
       "type": "@n8n/n8n-nodes-langchain.toolWikipedia",
       "typeVersion": 1,
       "position": [
-        1440,
-        1296
+        1568,
+        1328
       ],
       "id": "97c9c19c-c1d8-4a08-8985-20adaf947c5f",
       "name": "Wikipedia"
@@ -334,8 +334,8 @@
       "type": "@n8n/n8n-nodes-langchain.agentTool",
       "typeVersion": 2.2,
       "position": [
-        1168,
-        816
+        1296,
+        848
       ],
       "id": "b180b5f5-7b55-4d58-87a6-a945c11c3aa5",
       "name": "Research Agent"
@@ -348,8 +348,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1,
       "position": [
-        992,
-        1024
+        1120,
+        1056
       ],
       "id": "21b90c03-90c8-4909-ab03-e021af6d260e",
       "name": "LlamaCpp Research",
@@ -379,8 +379,8 @@
       "type": "n8n-nodes-duckduckgo-search.duckDuckGoTool",
       "typeVersion": 1,
       "position": [
-        1312,
-        1296
+        1440,
+        1328
       ],
       "id": "34674e67-3fff-4827-b889-6b882da4252f",
       "name": "DuckDuckGo"
@@ -394,8 +394,8 @@
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.4,
       "position": [
-        1184,
-        1296
+        1312,
+        1328
       ],
       "id": "d6c7fb8f-a6d1-42ff-a2a0-1008f76b7ab9",
       "name": "WeatherAPI"
@@ -414,7 +414,7 @@
       "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
       "typeVersion": 1.3,
       "position": [
-        1008,
+        960,
         400
       ],
       "id": "65ecfd5e-3ead-4da9-a383-a5d1ade2161b",
@@ -433,7 +433,7 @@
       "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
       "typeVersion": 1,
       "position": [
-        1008,
+        960,
         608
       ],
       "id": "4d875242-a690-4f6b-8b9e-33975d1f7153",
@@ -453,8 +453,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1,
       "position": [
-        1552,
-        1008
+        1680,
+        1040
       ],
       "id": "4f9163e1-536d-4f5c-8ca1-d7dc22f614ba",
       "name": "LlamaCpp PM",
@@ -470,15 +470,15 @@
         "toolDescription": "Use for anything related to tasks, projects, subtasks, priorities and due dates. Pass the full user request as the prompt.",
         "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
         "options": {
-          "systemMessage": "=You are Baxter's project management module. You manage projects, tasks, subtasks, and reminders.\n\nLANGUAGE: English only.\nFORMAT: Plain text only. No markdown, no bullet points, no headers.\n\nTOOLS:\n- GetProjects — retrieve all projects. Call before any project action.\n- UpsertProject — create or update a project. MUST be called to apply any change. Status values: active, on_hold, completed.\n- GetTasks — retrieve all tasks. Call before any task action.\n- UpsertTask — create or update a task. MUST be called to apply any change. Use completed=true to mark done.\n- GetSubtasks — retrieve subtasks for a given task. Call before any subtask action.\n- UpsertSubtask — create or update a subtask. MUST be called to apply any change.\n- GetReminders — retrieve all pending reminders.\n- UpsertReminder — create a new reminder. MUST be called to apply any change.\n\nRULES:\n- channel_id is always: {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\n- Before any update, always call the relevant Get tool first to confirm the item exists. Use the existing name/title exactly as stored when calling Upsert — this ensures the unique constraint matches correctly.\n- Priority values: low, medium, high, critical\n- Date format: YYYY-MM-DD\n- Reminder datetime format: YYYY-MM-DD HH:MM:SS in UTC. User is in CET (UTC+1), subtract 1 hour before storing.\n- task_id and subtask_id are optional on reminders. Leave both empty for standalone reminders.\n- CRITICAL: Never confirm any action to the user unless you have received a successful response from the relevant tool call. If the tool was not called, do not claim the action was completed.\n\nPROACTIVE SUGGESTIONS:\n- After creating a project: ask if the user wants to add tasks to it\n- After creating a task: ask if the user wants to set a reminder for it\n- After creating a reminder: ask if the user wants to add subtasks to the linked task\n- After marking a task or project complete: ask if any related items need updating\n- One suggestion only, kept to a single short question at the end of your response\n\nOUTPUT: End every response with RESPONSE: followed by your answer.",
+          "systemMessage": "=You are Baxter's project management module. You manage projects, tasks, subtasks, and reminders.\n\nLANGUAGE: English only.\nFORMAT: Plain text only. No markdown, no bullet points, no headers.\n\nTOOLS:\n- GetProjects â€” retrieve all projects. Call before any project action.\n- UpsertProject â€” create or update a project. MUST be called to apply any change. Status values: active, on_hold, completed.\n- GetTasks â€” retrieve all tasks. Call before any task action.\n- UpsertTask â€” create or update a task. MUST be called to apply any change. Use completed=true to mark done.\n- GetSubtasks â€” retrieve subtasks for a given task. Call before any subtask action.\n- UpsertSubtask â€” create or update a subtask. MUST be called to apply any change.\n- GetReminders â€” retrieve all pending reminders.\n- UpsertReminder â€” create a new reminder. MUST be called to apply any change.\n\nRULES:\n- channel_id is always: {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\n- Before any update, always call the relevant Get tool first to confirm the item exists. Use the existing name/title exactly as stored when calling Upsert â€” this ensures the unique constraint matches correctly.\n- Priority values: low, medium, high, critical\n- Date format: YYYY-MM-DD\n- Reminder datetime format: YYYY-MM-DD HH:MM:SS in UTC. User is in CET (UTC+1), subtract 1 hour before storing.\n- task_id and subtask_id are optional on reminders. Leave both empty for standalone reminders.\n- CRITICAL: Never confirm any action to the user unless you have received a successful response from the relevant tool call. If the tool was not called, do not claim the action was completed.\n\nPROACTIVE SUGGESTIONS:\n- After creating a project: ask if the user wants to add tasks to it\n- After creating a task: ask if the user wants to set a reminder for it\n- After creating a reminder: ask if the user wants to add subtasks to the linked task\n- After marking a task or project complete: ask if any related items need updating\n- One suggestion only, kept to a single short question at the end of your response\n\nOUTPUT: End every response with RESPONSE: followed by your answer.",
           "maxIterations": 20
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agentTool",
       "typeVersion": 2.2,
       "position": [
-        1712,
-        816
+        1840,
+        848
       ],
       "id": "330f6d11-ff6f-41c9-9ae6-236839a8fa47",
       "name": "Project Manager"
@@ -494,8 +494,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        1792,
-        1232
+        1920,
+        1264
       ],
       "id": "4c7218ab-db0c-453b-b4d1-9359d7fb3d6c",
       "name": "GetTasks",
@@ -515,8 +515,8 @@
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [
-        1136,
-        1024
+        1264,
+        1056
       ],
       "id": "ae994e4c-4dce-44f4-8302-f228e31a5fa7",
       "name": "Memory RS"
@@ -530,8 +530,8 @@
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [
-        1696,
-        1008
+        1824,
+        1040
       ],
       "id": "2b3c121b-b860-4438-ab97-161b078e22d2",
       "name": "Memory PM"
@@ -547,8 +547,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        1920,
-        1232
+        2048,
+        1264
       ],
       "id": "41e48799-1efd-4b1c-851f-21bf3a77265a",
       "name": "GetSubtasks",
@@ -570,8 +570,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        1792,
-        1408
+        1920,
+        1440
       ],
       "id": "2a71f99c-d121-4220-ac3f-711f9e983da0",
       "name": "UpsertTask",
@@ -593,8 +593,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        1920,
-        1408
+        2048,
+        1440
       ],
       "id": "75668101-637f-4eb8-aec0-7cbbfbba8be8",
       "name": "UpsertSubtask",
@@ -616,8 +616,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        2048,
-        1232
+        2176,
+        1264
       ],
       "id": "9d940c3d-2a81-4c26-a6d5-316e3b005f34",
       "name": "GetReminders",
@@ -639,8 +639,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        2048,
-        1408
+        2176,
+        1440
       ],
       "id": "2ace9142-61d9-402d-8465-87b65b936197",
       "name": "UpsertReminders",
@@ -662,8 +662,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        1664,
-        1232
+        1792,
+        1264
       ],
       "id": "9c08f950-3fce-48c1-a691-6669504692a9",
       "name": "GetProjects",
@@ -685,8 +685,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        1664,
-        1408
+        1792,
+        1440
       ],
       "id": "c5bdc340-80e8-4dcf-b7a3-cfb0c7b7494e",
       "name": "UpsertProject",
@@ -706,8 +706,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        624,
-        0
+        672,
+        -144
       ],
       "id": "5a51795c-837e-4089-ae9a-0d403cec634e",
       "name": "FetchProfile",
@@ -722,13 +722,13 @@
     },
     {
       "parameters": {
-        "jsCode": "\ntry {\n  const allItems = $input.all();\n  const profile = (allItems.length > 0 && allItems[0].json && allItems[0].json.channel_id != null)\n    ? allItems[0].json\n    : null;\n\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n\n  const hasProfile = profile !== null;\n  const onboardingStep = hasProfile ? (profile.onboarding_step ?? 1) : 1;\n\n  // ── Current datetime injected on every execution ────────────────────────\n  const now = new Date();\n  const timeContext = `DATE & TIME:\nCurrent datetime: ${now.toISOString()}\nLocal datetime:   ${now.toLocaleString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\nTimezone:         Europe/Amsterdam\nDay of week:      ${now.toLocaleDateString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long' })}`;\n\n  let systemPrompt = '';\n\n  // ── ONBOARDING MODE ────────────────────────────────────────────────────────\n  if (!hasProfile || onboardingStep > 0) {\n    const step = onboardingStep || 1;\n\n    const steps = {\n      1: `You are setting yourself up as the user's personal AI assistant.\n\nYour ONLY task right now is to warmly greet the user and ask this one question:\n\"Before we dive in, I'd love to define my own identity. What should I call myself, and how would you describe my personality and purpose? For example: 'Baxter — sharp and direct — helps me stay on top of work and life.'\"\n\nWhen they respond, call the UpdateProfile tool with:\n- soul: their answer, preserved exactly\n- next_onboarding_step: 2\nLeave all other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      2: `You are Baxter, a personal AI assistant currently in setup.\n\nYour soul has been defined. Now ask:\n\"Great. Now tell me a bit about you — your work, interests, goals, whatever you'd like me to keep in mind long-term.\"\n\nWhen they respond, call UpdateProfile with:\n- user_profile: a structured summary of what they shared (name, role, interests, goals)\n- next_onboarding_step: 3\nLeave other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      3: `You are Baxter, a personal AI assistant currently in setup.\n\nOne last question:\n\"Almost done — how do you prefer I communicate? Concise and direct, or more detailed? Any language or format preferences?\"\n\nWhen they respond, call UpdateProfile with:\n- preferences: their answer\n- next_onboarding_step: 0\nLeave other fields as empty strings. After saving, confirm setup is complete and you are ready to help.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n    };\n\n    systemPrompt = `${timeContext}\\n\\n` + (steps[step] || steps[1]);\n\n  // ── OPERATION MODE ──────────────────────────────────────────────────────────\n  } else {\n    const soul        = profile.soul          || 'Baxter — curious, helpful and critical — personal AI assistant';\n    const userProfile = profile.user_profile  || '';\n    const prefs       = profile.preferences   || 'Clear and direct';\n    const focus       = profile.current_focus || '';\n\n    systemPrompt  = `${timeContext}\\n\\n`;\n    systemPrompt += `${timeContext}\\n\\n`;\n    systemPrompt += `You are ${soul}.\\n\\n`;\n    systemPrompt += `LANGUAGE: Always respond in English only, regardless of input language.\\n\\n`;\n    systemPrompt += `FORMAT: Use markdown where it aids readability — headers and bullets for lists, news summaries and structured data; plain prose for conversational replies. When presenting news, use: **Title** — one sentence summary. Source, date. Be direct and concise. Maximum 3 sentences for simple factual answers.\\n\\n`;\n\n    if (userProfile) systemPrompt += `ABOUT THE USER:\\n${userProfile}\\n\\n`;\n    if (prefs)       systemPrompt += `COMMUNICATION STYLE: ${prefs}\\n\\n`;\n    if (focus)       systemPrompt += `CURRENT FOCUS: ${focus}\\n\\n`;\n\n    systemPrompt += `PROFILE: Update the user profile proactively using UpdateProfile whenever the user shares new information, changes a preference, or shifts focus.\\n\\n`;\n\n    systemPrompt += `TOOLS: Use tools when they add value — do not call tools unnecessarily on every message.\n1. Use LongTermMemory when the user references past events, asks what you remember, or the topic benefits from historical context.\n2. Use ExecQuery only when you need specific recent conversation details.\n3. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n4. Use CalendarManager for events, meetings, appointments or scheduling.\n5. Use NewsTool for current events, local news, tech or AI news, or anything recently changed.\n6. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n7. Only call GetSchema if you need to discover table structure.\n\nTASK DELEGATION: When a request will take significant time or multiple steps, use CreateTask to run it in the background. Assign the appropriate agent (research, baxter, project_manager). Start immediately — do not ask for approval. Tell Max the task has started and what to expect. Use GetTaskStatus when Max asks for an update.\n\nVISUALS: When explaining a system, process, architecture or set of connected ideas, proactively generate a sketch without asking first. Use SketchAgent to produce a Mermaid diagram and send it as an image via Telegram. Supported: architecture diagrams, flowcharts, mind maps, sequence diagrams.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n  }\n\n  return [{ json: { systemPrompt, onboardingStep, hasProfile } }];\n\n} catch (error) {\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n  const now = new Date();\n\n  const systemPrompt = `DATE & TIME: ${now.toISOString()} (Europe/Amsterdam)\n\nYou are Baxter, a personal AI assistant. You are curious, helpful and critical.\n\nLANGUAGE: Always respond in English only.\nFORMAT: use markdown where it aids readability (headers, bullets for lists and summaries), plain prose for conversational replies. When presenting news summaries, use this structure: a bold headline, one sentence summary, and source + date on the same line. Separate items with a blank line. Be direct and concise. \n\nTOOLS: Always check available tools before responding. Follow this order:\n1. Call LongTermMemory on every message to retrieve relevant context.\n2. Call ExecQuery for recent history. Filter WHERE channel_id = ${channelID} ORDER BY created_at DESC LIMIT 10.\n3. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n4. Use CalendarManager for events, meetings, appointments or scheduling.\n5. Use NewsTool for current events, local news or anything recently changed.\n6. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n\nTASK DELEGATION: Use CreateTask to run a request in the background when it requires research, multiple tool calls, significant content generation, or the user says: research, look into, compile, draft, or summarize. Call it immediately without asking for approval. Write a self-contained instructions prompt \u2014 include all context, the agent has no memory. Tell the user what is running and that they will be notified when done. Use GetTaskStatus for updates.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n\n  return [{ json: { systemPrompt, onboardingStep: 0, hasProfile: false, fallback: true } }];\n}\n"
+        "jsCode": "\ntry {\n  const allItems = $input.all();\n  const profile = (allItems.length > 0 && allItems[0].json && allItems[0].json.channel_id != null)\n    ? allItems[0].json\n    : null;\n\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n\n  const hasProfile = profile !== null;\n  const onboardingStep = hasProfile ? (profile.onboarding_step ?? 1) : 1;\n\n  // â”€â”€ Current datetime injected on every execution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€\n  const now = new Date();\n  const timeContext = `DATE & TIME:\nCurrent datetime: ${now.toISOString()}\nLocal datetime:   ${now.toLocaleString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\nTimezone:         Europe/Amsterdam\nDay of week:      ${now.toLocaleDateString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long' })}`;\n  const vault_navigation = $('Vault Navigation').first().json.stdout; \n\n  let systemPrompt = '';\n\n  // â”€â”€ ONBOARDING MODE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€\n  if (!hasProfile || onboardingStep > 0) {\n    const step = onboardingStep || 1;\n\n    const steps = {\n      1: `You are setting yourself up as the user's personal AI assistant.\n\nYour ONLY task right now is to warmly greet the user and ask this one question:\n\"Before we dive in, I'd love to define my own identity. What should I call myself, and how would you describe my personality and purpose? For example: 'Baxter â€” sharp and direct â€” helps me stay on top of work and life.'\"\n\nWhen they respond, call the UpdateProfile tool with:\n- soul: their answer, preserved exactly\n- next_onboarding_step: 2\nLeave all other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      2: `You are Baxter, a personal AI assistant currently in setup.\n\nYour soul has been defined. Now ask:\n\"Great. Now tell me a bit about you â€” your work, interests, goals, whatever you'd like me to keep in mind long-term.\"\n\nWhen they respond, call UpdateProfile with:\n- user_profile: a structured summary of what they shared (name, role, interests, goals)\n- next_onboarding_step: 3\nLeave other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      3: `You are Baxter, a personal AI assistant currently in setup.\n\nOne last question:\n\"Almost done â€” how do you prefer I communicate? Concise and direct, or more detailed? Any language or format preferences?\"\n\nWhen they respond, call UpdateProfile with:\n- preferences: their answer\n- next_onboarding_step: 0\nLeave other fields as empty strings. After saving, confirm setup is complete and you are ready to help.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n    };\n\n    systemPrompt = `${timeContext}\\n\\n` + (steps[step] || steps[1]);\n\n  // â”€â”€ OPERATION MODE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€\n  } else {\n    const soul        = profile.soul          || 'Baxter â€” curious, helpful and critical â€” personal AI assistant';\n    const userProfile = profile.user_profile  || '';\n    const prefs       = profile.preferences   || 'Clear and direct';\n    const focus       = profile.current_focus || '';\n\n    systemPrompt  = `${timeContext}\\n\\n`;\n    systemPrompt += `${timeContext}\\n\\n`;\n    systemPrompt += `You are ${soul}.\\n\\n`;\n    systemPrompt += `LANGUAGE: Always respond in English only, regardless of input language.\\n\\n`;\n    systemPrompt += `FORMAT: Use markdown where it aids readability â€” headers and bullets for lists, news summaries and structured data; plain prose for conversational replies. When presenting news, use: **Title** â€” one sentence summary. Source, date. Be direct and concise. Maximum 3 sentences for simple factual answers.\\n\\n`;\n\n    if (userProfile) systemPrompt += `ABOUT THE USER:\\n${userProfile}\\n\\n`;\n    if (prefs)       systemPrompt += `COMMUNICATION STYLE: ${prefs}\\n\\n`;\n    if (focus)       systemPrompt += `CURRENT FOCUS: ${focus}\\n\\n`;\n\n    systemPrompt += `PROFILE: Update the user profile proactively using UpdateProfile whenever the user shares new information, changes a preference, or shifts focus.\\n\\n`;\n\n    systemPrompt += `TOOLS: Use tools when they add value â€” do not call tools unnecessarily on every message.\n1. Use LongTermMemory when the user references past events, asks what you remember, or the topic benefits from historical context.\n2. Use ExecQuery only when you need specific recent conversation details.\n3. Call SearchVault to find notes by keyword \u2014 it returns matching file paths. Then call ReadVaultNote with the path to read the full content. Use ${vault_navigation} to navigate known paths directly. These tools are better over-used than under-used. \n4. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n5. Use CalendarManager for events, meetings, appointments or scheduling.\n6. Use NewsTool for current events, local news, tech or AI news, or anything recently changed.\n7. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n8. Only call GetSchema if you need to discover table structure.\n\nTASK DELEGATION: When a request will take significant time or multiple steps, use CreateTask to run it in the background. Assign the appropriate agent (research, baxter, project_manager). Start immediately â€” do not ask for approval. Tell Max the task has started and what to expect. Use GetTaskStatus when Max asks for an update.\n\nVISUALS: When explaining a system, process, architecture or set of connected ideas, proactively generate a sketch without asking first. Use SketchAgent to produce a Mermaid diagram and send it as an image via Telegram. Supported: architecture diagrams, flowcharts, mind maps, sequence diagrams.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n  }\n\n  return [{ json: { systemPrompt, onboardingStep, hasProfile } }];\n\n} catch (error) {\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n  const now = new Date();\n  const vault_navigation = $('Vault Navigation').first().json.stdout;\n\n  const systemPrompt = `DATE & TIME: ${now.toISOString()} (Europe/Amsterdam)\n\nYou are Baxter, a personal AI assistant. You are curious, helpful and critical.\n\nLANGUAGE: Always respond in English only.\nFORMAT: use markdown where it aids readability (headers, bullets for lists and summaries), plain prose for conversational replies. When presenting news summaries, use this structure: a bold headline, one sentence summary, and source + date on the same line. Separate items with a blank line. Be direct and concise. \n\nTOOLS: Always check available tools before responding. Follow this order:\n1. Call LongTermMemory on every message to retrieve relevant context.\n2. Call ExecQuery for recent history. Filter WHERE channel_id = ${channelID} ORDER BY created_at DESC LIMIT 10.\n3. Call SearchVault to find notes by keyword \u2014 it returns matching file paths. Then call ReadVaultNote with the path to read the full content. Use ${vault_navigation} to navigate known paths directly. These tools are better over-used than under-used. \n4. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n5. Use CalendarManager for events, meetings, appointments or scheduling.\n6. Use NewsTool for current events, local news or anything recently changed.\n7. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n\nTASK DELEGATION: Use CreateTask to run a request in the background when it requires research, multiple tool calls, significant content generation, or the user says: research, look into, compile, draft, or summarize. Call it immediately without asking for approval. Write a self-contained instructions prompt â€” include all context, the agent has no memory. Tell the user what is running and that they will be notified when done. Use GetTaskStatus for updates.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n\n  return [{ json: { systemPrompt, onboardingStep: 0, hasProfile: false, fallback: true } }];\n}\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        816,
-        0
+        848,
+        -144
       ],
       "id": "3a1199ae-cd36-4965-8c91-88eb8c074205",
       "name": "BuildSystemPrompt"
@@ -744,8 +744,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        688,
-        400
+        2848,
+        288
       ],
       "id": "c1041a61-90e2-4101-a060-0961d3accb71",
       "name": "UpdateProfile",
@@ -764,8 +764,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1,
       "position": [
-        2192,
-        992
+        2320,
+        1024
       ],
       "id": "f9905d72-bb53-4e56-a5eb-d734ec528312",
       "name": "LlamaCpp Calendar",
@@ -785,8 +785,8 @@
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
       "position": [
-        2368,
-        992
+        2496,
+        1024
       ],
       "id": "d0e96ba5-178e-4e0b-aeaf-f10028bc47ee",
       "name": "MemoryCalendar"
@@ -810,8 +810,8 @@
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        2544,
-        992
+        2672,
+        1024
       ],
       "id": "0c0b9b45-d136-4a3d-94cd-b2b4723c9ec0",
       "name": "GetEvents",
@@ -843,8 +843,8 @@
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        2704,
-        992
+        2832,
+        1024
       ],
       "id": "b52e4df8-b8b5-4a88-ae5a-e410e8820b6d",
       "name": "CreateEvent",
@@ -877,8 +877,8 @@
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        2864,
-        992
+        2992,
+        1024
       ],
       "id": "973f1b78-cb65-4fdf-a142-978bf313528e",
       "name": "UpdateEvent",
@@ -906,8 +906,8 @@
       "type": "n8n-nodes-base.googleCalendarTool",
       "typeVersion": 1.3,
       "position": [
-        3024,
-        992
+        3152,
+        1024
       ],
       "id": "b46b82fe-0196-4c42-899e-2ca984048f73",
       "name": "DeleteEvent",
@@ -929,8 +929,8 @@
       "type": "@n8n/n8n-nodes-langchain.agentTool",
       "typeVersion": 2.2,
       "position": [
-        2368,
-        816
+        2496,
+        848
       ],
       "id": "2af03d90-5f8d-4d55-96d2-deec0ba4a5f5",
       "name": "CalendarManager"
@@ -938,7 +938,7 @@
     {
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Retrieve recent news items from the local database. Use for current events, local Rotterdam/Netherlands news, AI and tech news, or any topic that may have changed recently. Also use proactively when a conversation topic connects to recent news.\nAfter retrieving results, present each item as: Title — one sentence summary. Source, date.\nWhen no specific topic is requested, pass ALL as the topic to retrieve all recent news.",
+        "toolDescription": "Retrieve recent news items from the local database. Use for current events, local Rotterdam/Netherlands news, AI and tech news, or any topic that may have changed recently. Also use proactively when a conversation topic connects to recent news.\nAfter retrieving results, present each item as: Title â€” one sentence summary. Source, date.\nWhen no specific topic is requested, pass ALL as the topic to retrieve all recent news.",
         "operation": "executeQuery",
         "query": "SELECT ns.name as source, ns.category, ni.title, ni.summary, TO_CHAR(ni.published_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as published_at, ni.url\nFROM news_items ni\nJOIN news_sources ns ON ns.id = ni.source_id\nWHERE ns.active = TRUE\nAND (\n  '{{ $fromAI(\"topic\", \"Topic or keyword to search for, or ALL for everything\", \"string\") }}' = 'ALL'\n  OR ni.title ILIKE '%' || '{{ $fromAI(\"topic\", \"Topic or keyword to search for, or ALL for everything\", \"string\") }}' || '%'\n  OR ni.summary ILIKE '%' || '{{ $fromAI(\"topic\", \"Topic or keyword to search for, or ALL for everything\", \"string\") }}' || '%'\n)\nAND ni.published_at >= NOW() - INTERVAL '30 days'\nORDER BY ni.published_at DESC\nLIMIT {{ $fromAI(\"limit\", \"Max results to return, default 10\", \"number\") }};",
         "options": {}
@@ -946,8 +946,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        832,
-        400
+        2992,
+        288
       ],
       "id": "30825f7a-f603-42fa-ad16-e53f7f1c70e0",
       "name": "NewsTool",
@@ -969,8 +969,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        2096,
-        240
+        2208,
+        288
       ],
       "id": "06dedf2d-1947-490d-a689-747e8e41226d",
       "name": "CreateTask",
@@ -992,8 +992,8 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        2288,
-        256
+        2384,
+        288
       ],
       "id": "c58461a6-6a43-4340-bd80-a2e6e28726ba",
       "name": "GetTaskStatus",
@@ -1003,6 +1003,64 @@
           "name": "Postgres account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst content = fs.readFileSync('/data/vault/Maps/Navigation.md', 'utf8');\nreturn [{ json: { stdout: content } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        -144
+      ],
+      "id": "b38f224e-bdc1-4f21-9595-ee243c6edcff",
+      "name": "Vault Navigation"
+    },
+    {
+      "parameters": {
+        "name": "ReadVaultNote",
+        "description": "Reads the full markdown content of a specific note from the Obsidian vault.\nUse this when you know the exact vault-relative path of the note (e.g. after a grep search returned matching paths, or when you know the path from Navigation.md).\nInput must be a vault-relative path including the file extension, e.g. \"Atlas/Topics/AI.md\" or \"Calendar/2026-04-29.md\".",
+        "jsCode": "const fs = require('fs');\nconst notePath = '/data/vault/' + query.trim();\ntry {\n  return fs.readFileSync(notePath, 'utf8');\n} catch(e) {\n  return 'Error reading file: ' + e.message;\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        832,
+        400
+      ],
+      "id": "ee1be00a-3dd5-4845-8a28-a680148f0ada",
+      "name": "ReadVaultNote"
+    },
+    {
+      "parameters": {
+        "name": "SearchVault",
+        "description": "Searches all markdown notes in the Obsidian vault by keyword using grep.\nReturns a list of vault-relative file paths that contain the search term.\nUse this when you need to find which notes are relevant before reading them with ReadVaultNote.\nInput: a single search keyword or short phrase (case-insensitive). Avoid very common words.",
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst keyword = query.trim().toLowerCase();\nconst vaultRoot = '/data/vault';\nconst matches = [];\n\nfunction walk(dir) {\n  let entries;\n  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch(e) { return; }\n  for (const entry of entries) {\n    const full = path.join(dir, entry.name);\n    if (entry.isDirectory()) {\n      walk(full);\n    } else if (entry.name.endsWith('.md')) {\n      try {\n        const text = fs.readFileSync(full, 'utf8');\n        if (text.toLowerCase().includes(keyword) || entry.name.toLowerCase().includes(keyword)) {\n          matches.push(full.replace(vaultRoot + '/', ''));\n        }\n      } catch(e) {}\n    }\n    if (matches.length >= 20) return;\n  }\n}\n\nwalk(vaultRoot);\nreturn matches.length > 0 ? matches.join('\\n') : 'No matching notes found.';"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        832,
+        560
+      ],
+      "id": "fa3c9d12-beef-4321-abcd-111122223333",
+      "name": "SearchVault"
+    },
+    {
+      "parameters": {
+        "name": "WriteVaultNote",
+        "description": "Creates or overwrites a markdown note in the vault under Atlas/Baxter/.\nUse this to persist research outputs, important facts, or topics Max wants remembered long-term.\nUse when Max explicitly asks to save/remember something, OR when you produce a substantial research output worth keeping.\nDo NOT use for casual conversation or things already covered by LongTermMemory.\nInput: JSON string with fields: path (required, must start with Atlas/Baxter/, e.g. Atlas/Baxter/Maia-Plan.md), content (required, the markdown body), tags (optional array of strings).",
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\nlet params;\ntry { params = JSON.parse(query); } catch(e) { return 'Error: input must be a JSON string with path and content fields.'; }\n\nconst notePath = (params.path || '').trim();\nconst noteContent = (params.content || '').trim();\nconst tags = Array.isArray(params.tags) ? params.tags : [];\n\nif (!notePath.startsWith('Atlas/Baxter/')) {\n  return 'Error: WriteVaultNote can only write to Atlas/Baxter/. Path must start with Atlas/Baxter/.';\n}\nif (!notePath.endsWith('.md')) {\n  return 'Error: path must end with .md';\n}\nif (!noteContent) {\n  return 'Error: content is required.';\n}\n\nconst fullPath = '/data/vault/' + notePath;\nconst dir = path.dirname(fullPath);\nfs.mkdirSync(dir, { recursive: true });\n\nconst now = new Date().toISOString().split('T')[0];\nconst tagLine = tags.length > 0 ? '\\ntags: [' + tags.join(', ') + ']' : '';\nconst frontmatter = '---\\ncreated_by: baxter\\ndate: ' + now + tagLine + '\\n---\\n\\n';\n\nconst finalContent = frontmatter + noteContent;\nfs.writeFileSync(fullPath, finalContent, 'utf8');\nreturn 'Note saved to ' + notePath;"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        832,
+        720
+      ],
+      "id": "c1a2b3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "WriteVaultNote"
     }
   ],
   "pinData": {
@@ -1066,7 +1124,7 @@
       "main": [
         [
           {
-            "node": "FetchProfile",
+            "node": "Vault Navigation",
             "type": "main",
             "index": 0
           }
@@ -1479,6 +1537,50 @@
           }
         ]
       ]
+    },
+    "Vault Navigation": {
+      "main": [
+        [
+          {
+            "node": "FetchProfile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReadVaultNote": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearchVault": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WriteVaultNote": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -1487,7 +1589,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "6e0c8512-d13f-4a28-919e-b6e2a5260934",
+  "versionId": "b9b20d79-2853-4ae8-b98b-38561c140432",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"

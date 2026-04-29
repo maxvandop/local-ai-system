@@ -936,7 +936,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE agent_tasks\nSET status = 'completed',\n    result = to_json('{{ $json.result.replace(/'/g, \"''\") }}'::text)::jsonb,\n    updated_at = NOW()\nWHERE id = '{{ $json.jobId }}'::uuid;",
+        "query": "UPDATE agent_tasks\nSET status = 'completed',\n    result = to_json('{{ $('SetOutput').first().json.AgentOutput.response.replace(/'/g, \"''\") }}'::text)::jsonb,\n    updated_at = NOW()\nWHERE id = '{{ $('GetPendingJob').first().json.id }}'::uuid;",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -956,8 +956,8 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $('MergeResult').first().json.channelId }}",
-        "text": "=✅ Job done: {{ $('MergeResult').first().json.title }}\n\n{{ $('MergeResult').first().json.result }}",
+        "chatId": "={{ $('SetOutput').first().json.ChannelInformation.ChannelID }}",
+        "text": "=✅ Job done: {{ $('GetPendingJob').first().json.title }}\n\n{{ $('SetOutput').first().json.AgentOutput.response }}",
         "additionalFields": {
           "appendAttribution": false
         }

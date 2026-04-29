@@ -95,6 +95,10 @@ GROUP_ID=1000
 # Set LLAMA_MODEL to the exact GGUF filename to load.
 MODELS_PATH=C:/Users/maxva/Models
 LLAMA_MODEL=your-model-q8_0.gguf
+
+# ── Vault (Obsidian) ──────────────────────────────────────
+# Absolute path to your Obsidian vault folder on the host.
+VAULT_PATH=C:/Users/maxva/Repositories/vault
 EOF
 
     echo "✓ .env created with generated keys"
@@ -115,6 +119,7 @@ else
     grep -q "^GROUP_ID="                        .env || MISSING_VARS+=("GROUP_ID=1000")
     grep -q "^MODELS_PATH="                     .env || MISSING_VARS+=("MODELS_PATH=C:/Users/maxva/Models")
     grep -q "^LLAMA_MODEL="                     .env || MISSING_VARS+=("LLAMA_MODEL=your-model-q8_0.gguf")
+    grep -q "^VAULT_PATH="                      .env || MISSING_VARS+=("VAULT_PATH=C:/Users/maxva/Repositories/vault")
 
     if [ ${#MISSING_VARS[@]} -gt 0 ]; then
         echo "  Adding missing variables:"
