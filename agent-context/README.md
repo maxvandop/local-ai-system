@@ -89,7 +89,44 @@ try {
   return 'Error reading file: ' + e.message;
 }
 ```
+### 4. WriteVaultNote (toolCode — `@n8n/n8n-nodes-langchain.toolCode`)
+Agent calls this to create/overwrite a note. **Restricted to `Atlas/Baxter/` only** — the tool enforces this in code.
+`query` = JSON string: `{ "path": "Atlas/Baxter/filename.md", "content": "...", "tags": ["tag1"] }`
 
+Used when:
+- Max explicitly asks to save/remember something
+- Baxter produces a substantial research output worth persisting
+
+All notes get frontmatter injected automatically: `created_by: baxter`, `date`, `tags`.
+The vault is mounted **read-write** (no `:ro`). The `Atlas/Baxter/` folder exists in the vault with a `_index.md`.
+
+```js
+const fs = require('fs');
+const path = require('path');
+
+let params;
+try { params = JSON.parse(query); } catch(e) { return 'Error: input must be a JSON string with path and content fields.'; }
+
+const notePath = (params.path || '').trim();
+const noteContent = (params.content || '').trim();
+const tags = Array.isArray(params.tags) ? params.tags : [];
+
+if (!notePath.startsWith('Atlas/Baxter/')) {
+  return 'Error: WriteVaultNote can only write to Atlas/Baxter/.';
+}
+if (!notePath.endsWith('.md')) { return 'Error: path must end with .md'; }
+if (!noteContent) { return 'Error: content is required.'; }
+
+const fullPath = '/data/vault/' + notePath;
+fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+
+const now = new Date().toISOString().split('T')[0];
+const tagLine = tags.length > 0 ? '\ntags: [' + tags.join(', ') + ']' : '';
+const frontmatter = '---\ncreated_by: baxter\ndate: ' + now + tagLine + '\n---\n\n';
+
+fs.writeFileSync(fullPath, frontmatter + noteContent, 'utf8');
+return 'Note saved to ' + notePath;
+```
 ### 3. SearchVault (toolCode — `@n8n/n8n-nodes-langchain.toolCode`)
 Agent calls this with a keyword. Recursively walks `/data/vault`, matches case-insensitively
 against file content AND filename. Returns up to 20 vault-relative paths.
@@ -285,5 +322,5 @@ Workflow JSON files follow n8n's export format. Key top-level fields: `name`, `n
 ## Planned next steps
 
 - [ ] **Qdrant vault indexer** — new n8n workflow to embed all `.md` files into a `vault_knowledge` Qdrant collection using `nomic-embed-text`. Would enable semantic search on top of the current keyword search.
-- [ ] **Vault write tool** — allow Baxter to append to daily notes or create new notes (currently mount is read-only)
+- [ ] **Vault write tool** — ✅ Done. `WriteVaultNote` toolCode node writes to `Atlas/Baxter/` only
 - [ ] **SearchVault performance** — current full-walk approach is fine for small vaults; for large vaults consider a pre-built index
