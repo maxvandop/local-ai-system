@@ -8,7 +8,8 @@ Ordered roughly by dependency and value. Items marked 🔍 need further scoping 
 
 **Current state:**
 - `agent_tasks` table exists with a well-designed schema: `parent_task_id`, `previous_task_id`, `next_task_id`, `depends_on` (JSONB array of UUIDs), `subtasks` (JSONB array), `requires_approval`, `prompts` (JSONB: user/core/context)
-- `5-JobRunner.json` polls for `status = 'pending' AND type = 'task'` every cycle, runs the agent, writes result back
+- `5-JobRunner.json` polls for `status = 'pending' AND type = 'task'` every cycle, calls `_BaxterCore` sub-workflow, writes result back
+- `CreateTask` tool is functional — the agent calls it to queue background tasks. The INSERT uses `COALESCE`/`NULLIF` fallbacks on all `$fromAI()` fields so partial tool calls (where the LLM omits args) still produce valid rows. `prompts.user` is populated with the actual user message from SetVars.
 - **Gap 1:** JobRunner only picks up `type = 'task'` — orchestrator tasks (`type = 'orchestrator'`) that need to plan and spawn subtasks have no runner
 - **Gap 2:** `depends_on` is stored but never checked — tasks start regardless of whether their dependencies completed
 - **Gap 3:** `prompts.context` is passed through as-is with no enrichment — the agent has no awareness of sibling tasks, parent goal, or what already ran
@@ -63,26 +64,16 @@ Alternatively, within a single task: the agent calls a web search tool, evaluate
 
 ---
 
-## 4. Better Web Search
+## 4. Better Web Search — ✅ Done
 
-**Current state:** ResearchAgent sub-agent uses DuckDuckGo (community node). Wikipedia is also available. This is sufficient for factual lookups but weak for current events, technical docs, and multi-source synthesis.
+**Implemented:** SearXNG (self-hosted) + Jina AI Reader, both wired into Research Agent.
 
-**Options (best first):**
+- **SearXNG** (`searxng/searxng` container, port 8888/8080) — meta-search returning URLs + snippets as JSON. `SearXNG` HTTP Request Tool in `_BaxterCore` calls `http://searxng:8080/search?q={query}&format=json`. Config: `searxng/settings.yml` (JSON format enabled, rate limiter off).
+- **JinaReader** — `JinaReader` HTTP Request Tool calls `https://r.jina.ai/{url}` to fetch full page content as clean markdown. No API key needed.
 
-### 4a. Jina AI Reader (recommended, free tier available)
-Converts any URL to clean markdown. Combine with DuckDuckGo (get URLs) → Jina (fetch content). Already has an n8n node: `n8n-nodes-base.jinaai`. No community node needed.
-Pattern: DuckDuckGo search → extract top 3 URLs → Jina fetch each → synthesise.
+The Research Agent now has the full pipeline: DuckDuckGo/SearXNG for URL discovery → JinaReader for full content retrieval → Wikipedia for reference. DuckDuckGo kept alongside SearXNG for redundancy.
 
-### 4b. SearXNG (self-hosted, already in your stack)
-A `toolsearxng` built-in tool exists in n8n langchain. You may already have SearXNG running or it's trivial to add to docker-compose. Returns more results than DuckDuckGo with better source control.
-
-### 4c. Brave Search API
-Has a generous free tier (2000 req/month). Better freshness than DuckDuckGo. Available as HTTP Request Tool.
-
-### 4d. Firecrawl (community node: `n8n-nodes-firecrawl`)
-Full web scraping + markdown conversion. Better than Jina for complex pages. Has a self-hosted option. Good fit if you want Baxter to deeply read a specific site.
-
-**Recommended immediate step:** Add SearXNG to docker-compose (single container, no API key needed) and wire `toolsearxng` into ResearchAgent. Zero cost, better results.
+**Potential future upgrade:** Firecrawl (self-hosted) for JS-heavy sites that Jina struggles with.
 
 ---
 
@@ -140,22 +131,6 @@ Comparing Baxter to a well-configured ChatGPT/Claude setup:
 
 ---
 
-## 8. Daily Briefing Schedule Fix
+## 8. Daily Briefing Schedule Fix — ✅ Done
 
-**Current state:** `triggerAtHour: 8` — fires at 08:00 server time.
-
-**Likely issue:** The n8n container timezone may not be set to `Europe/Amsterdam`, so 08:00 server time may not be 08:00 local time. Also, 08:00 may simply be too early or late for Max's preference.
-
-**Fix options:**
-
-1. **Set timezone in docker-compose** (recommended — fixes all scheduled workflows):
-   Add to `x-n8n` environment in `docker-compose.yml`:
-   ```yaml
-   - GENERIC_TIMEZONE=Europe/Amsterdam
-   ```
-
-2. **Change the hour** in `1-DailyBriefing_v2.json`: change `"triggerAtHour": 8` to preferred hour (e.g. 7 for 07:00).
-
-3. **Both** — set the timezone env var AND adjust the hour once you confirm what time you actually want it.
-
-**What hour do you want the briefing?** Once confirmed, this is a one-line change.
+Added `GENERIC_TIMEZONE=Europe/Amsterdam` and `TZ=Europe/Amsterdam` to the `x-n8n` shared block in `docker-compose.yml`. All scheduled workflows now trigger at correct Amsterdam local time. Container clock shows `CEST` (UTC+2). Briefing is currently set to `triggerAtHour: 8` (08:00 Amsterdam time).

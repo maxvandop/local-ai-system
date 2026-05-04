@@ -1,0 +1,14 @@
+﻿use_default_settings: true
+
+server:
+  limiter: false
+  secret_key: "baxter-searxng-local-secret"
+  bind_address: "0.0.0.0:8080"
+
+search:
+  formats:
+    - html
+    - json
+
+ui:
+  default_locale: en

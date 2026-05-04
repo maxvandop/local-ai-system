@@ -1,0 +1,449 @@
+﻿{
+  "name": "b-Baxter-v3-Orchestrator-v1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"input\": \"string\"\n}"
+      },
+      "id": "839d2ff9-79e8-46cf-a7dc-e2bfc8ebe0d2",
+      "typeVersion": 1.1,
+      "name": "Start",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        5168,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "D5CmEZRYTq20ffd6",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/D5CmEZRYTq20ffd6",
+          "cachedResultName": "z-Baxter-v2-Communication"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "input": "={{ JSON.stringify($('Call _BaxterCore').first().json) }}"
+          },
+          "matchingColumns": [
+            "input"
+          ],
+          "schema": [
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        7088,
+        48
+      ],
+      "id": "fa558157-f4b5-40b9-80ce-882543d53d40",
+      "name": "Call 'z-Baxter-v2-Communication'"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = JSON.parse($input.first().json.input);\nreturn parsed;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5392,
+        48
+      ],
+      "id": "21f35476-23f9-4184-b2aa-a83ad61a8143",
+      "name": "ParseInput"
+    },
+    {
+      "parameters": {
+        "jsCode": "let input = $input.first().json;\n\n// Detect task JSON format vs legacy format\nconst isTaskJson = input.prompts !== undefined;\n\nconst inputType = isTaskJson ? (input.metadata?.inputType ?? 'unknown')       : (input.InputType ?? 'unknown');\nconst userInput = isTaskJson ? (input.prompts?.user ?? '')                    : (input.RequestInput?.input ?? '');\nconst channelID = isTaskJson ? (input.metadata?.telegram?.channelId ?? null) : (input.ChannelInformation?.ChannelID ?? null);\nconst messageID = isTaskJson ? (input.metadata?.telegram?.messageId ?? null) : (input.ChannelInformation?.MessageID ?? null);\n\nreturn {\n  InputType: inputType,\n  RequestInput: {\n    input: userInput + \"\\n\\n###OUTPUT###\\nStart your final answer with the exact token RESPONSE: on its own line.\"\n  },\n  ChannelInformation: {\n    ChannelID: channelID,\n    MessageID: messageID\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5600,
+        48
+      ],
+      "id": "bf76a319-5e6d-41db-b634-83f0282edab6",
+      "name": "SetVars"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "message_history",
+          "mode": "list",
+          "cachedResultName": "message_history"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "channel_id": "={{ $('Call _BaxterCore').first().json.ChannelInformation.ChannelID }}",
+            "message_id": "={{ $('Call _BaxterCore').first().json.ChannelInformation.MessageID }}",
+            "input_type": "={{ $('Call _BaxterCore').first().json.InputType }}",
+            "user_input": "={{ $('Call _BaxterCore').first().json.RequestInput.input }}",
+            "agent_response": "={{ $('Call _BaxterCore').first().json.AgentOutput.response }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "channel_id",
+              "displayName": "channel_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "input_type",
+              "displayName": "input_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_input",
+              "displayName": "user_input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "agent_response",
+              "displayName": "agent_response",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        6800,
+        48
+      ],
+      "id": "d798023c-dd4b-4755-9c58-477f1555ea05",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT channel_id, soul, user_profile, preferences, current_focus, onboarding_step\nFROM user_profile\nWHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        6032,
+        48
+      ],
+      "id": "39190369-505d-4640-bc69-ece873725be8",
+      "name": "FetchProfile",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\ntry {\n  const allItems = $input.all();\n  const profile = (allItems.length > 0 && allItems[0].json && allItems[0].json.channel_id != null)\n    ? allItems[0].json\n    : null;\n\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n\n  const hasProfile = profile !== null;\n  const onboardingStep = hasProfile ? (profile.onboarding_step ?? 1) : 1;\n\n  // Ã¢â€â‚¬Ã¢â€â‚¬ Current datetime injected on every execution Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬\n  const now = new Date();\n  const timeContext = `DATE & TIME:\nCurrent datetime: ${now.toISOString()}\nLocal datetime:   ${now.toLocaleString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\nTimezone:         Europe/Amsterdam\nDay of week:      ${now.toLocaleDateString('en-GB', { timeZone: 'Europe/Amsterdam', weekday: 'long' })}`;\n  const vault_navigation = $('Vault Navigation').first().json.stdout; \n\n  let systemPrompt = '';\n\n  // Ã¢â€â‚¬Ã¢â€â‚¬ ONBOARDING MODE Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬\n  if (!hasProfile || onboardingStep > 0) {\n    const step = onboardingStep || 1;\n\n    const steps = {\n      1: `You are setting yourself up as the user's personal AI assistant.\n\nYour ONLY task right now is to warmly greet the user and ask this one question:\n\"Before we dive in, I'd love to define my own identity. What should I call myself, and how would you describe my personality and purpose? For example: 'Baxter Ã¢â‚¬â€ sharp and direct Ã¢â‚¬â€ helps me stay on top of work and life.'\"\n\nWhen they respond, call the UpdateProfile tool with:\n- soul: their answer, preserved exactly\n- next_onboarding_step: 2\nLeave all other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      2: `You are Baxter, a personal AI assistant currently in setup.\n\nYour soul has been defined. Now ask:\n\"Great. Now tell me a bit about you Ã¢â‚¬â€ your work, interests, goals, whatever you'd like me to keep in mind long-term.\"\n\nWhen they respond, call UpdateProfile with:\n- user_profile: a structured summary of what they shared (name, role, interests, goals)\n- next_onboarding_step: 3\nLeave other fields as empty strings.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n\n      3: `You are Baxter, a personal AI assistant currently in setup.\n\nOne last question:\n\"Almost done Ã¢â‚¬â€ how do you prefer I communicate? Concise and direct, or more detailed? Any language or format preferences?\"\n\nWhen they respond, call UpdateProfile with:\n- preferences: their answer\n- next_onboarding_step: 0\nLeave other fields as empty strings. After saving, confirm setup is complete and you are ready to help.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`,\n    };\n\n    systemPrompt = `${timeContext}\\n\\n` + (steps[step] || steps[1]);\n\n  // Ã¢â€â‚¬Ã¢â€â‚¬ OPERATION MODE Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬\n  } else {\n    const soul        = profile.soul          || 'Baxter Ã¢â‚¬â€ curious, helpful and critical Ã¢â‚¬â€ personal AI assistant';\n    const userProfile = profile.user_profile  || '';\n    const prefs       = profile.preferences   || 'Clear and direct';\n    const focus       = profile.current_focus || '';\n\n    systemPrompt  = `${timeContext}\\n\\n`;\n    systemPrompt += `${timeContext}\\n\\n`;\n    systemPrompt += `You are ${soul}.\\n\\n`;\n    systemPrompt += `LANGUAGE: Always respond in English only, regardless of input language.\\n\\n`;\n    systemPrompt += `FORMAT: Use markdown where it aids readability Ã¢â‚¬â€ headers and bullets for lists, news summaries and structured data; plain prose for conversational replies. When presenting news, use: **Title** Ã¢â‚¬â€ one sentence summary. Source, date. Be direct and concise. Maximum 3 sentences for simple factual answers.\\n\\n`;\n\n    if (userProfile) systemPrompt += `ABOUT THE USER:\\n${userProfile}\\n\\n`;\n    if (prefs)       systemPrompt += `COMMUNICATION STYLE: ${prefs}\\n\\n`;\n    if (focus)       systemPrompt += `CURRENT FOCUS: ${focus}\\n\\n`;\n\n    systemPrompt += `PROFILE: Update the user profile proactively using UpdateProfile whenever the user shares new information, changes a preference, or shifts focus.\\n\\n`;\n\n    systemPrompt += `TOOLS: Use tools when they add value Ã¢â‚¬â€ do not call tools unnecessarily on every message.\n1. Use LongTermMemory when the user references past events, asks what you remember, or the topic benefits from historical context.\n2. Use ExecQuery only when you need specific recent conversation details.\n3. Call SearchVault to find notes by keyword â€” it returns matching file paths. Then call ReadVaultNote with the path to read the full content. Use ${vault_navigation} to navigate known paths directly. These tools are better over-used than under-used.\n4. Call WriteVaultNote to save a research output or fact to Atlas/Baxter/ â€” use when Max asks to remember something or when you produce a substantial output worth keeping. Pass JSON: {\"path\": \"Atlas/Baxter/filename.md\", \"content\": \"...\", \"tags\": []}.\n5. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n5. Use CalendarManager for events, meetings, appointments or scheduling.\n6. Use NewsTool for current events, local news, tech or AI news, or anything recently changed.\n7. Call ResearchAgent for deeper research, real-time data not covered by NewsTool, or when Max pastes a URL and wants you to read/summarise it. ResearchAgent uses SearXNG + JinaReader to fetch full page content.\n8. Only call GetSchema if you need to discover table structure.\n\nTASK DELEGATION: When a request will take significant time or multiple steps, use CreateTask to run it in the background. Assign the appropriate agent (research, baxter, project_manager). Start immediately Ã¢â‚¬â€ do not ask for approval. Tell Max the task has started and what to expect. Use GetTaskStatus when Max asks for an update.\n\nVISUALS: When explaining a system, process, architecture or set of connected ideas, proactively generate a sketch without asking first. Use SketchAgent to produce a Mermaid diagram and send it as an image via Telegram. Supported: architecture diagrams, flowcharts, mind maps, sequence diagrams.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n  }\n\n  return [{ json: { systemPrompt, onboardingStep, hasProfile } }];\n\n} catch (error) {\n  const vars = $('SetVars').first().json;\n  const channelID = vars.ChannelInformation.ChannelID;\n  const now = new Date();\n  const vault_navigation = $('Vault Navigation').first().json.stdout;\n\n  const systemPrompt = `DATE & TIME: ${now.toISOString()} (Europe/Amsterdam)\n\nYou are Baxter, a personal AI assistant. You are curious, helpful and critical.\n\nLANGUAGE: Always respond in English only.\nFORMAT: use markdown where it aids readability (headers, bullets for lists and summaries), plain prose for conversational replies. When presenting news summaries, use this structure: a bold headline, one sentence summary, and source + date on the same line. Separate items with a blank line. Be direct and concise. \n\nTOOLS: Always check available tools before responding. Follow this order:\n1. Call LongTermMemory on every message to retrieve relevant context.\n2. Call ExecQuery for recent history. Filter WHERE channel_id = ${channelID} ORDER BY created_at DESC LIMIT 10.\n3. Call SearchVault to find notes by keyword â€” it returns matching file paths. Then call ReadVaultNote with the path to read the full content. Use ${vault_navigation} to navigate known paths directly. These tools are better over-used than under-used.\n4. Call WriteVaultNote to save a research output or fact to Atlas/Baxter/ â€” use when Max asks to remember something or when you produce a substantial output worth keeping. Pass JSON: {\"path\": \"Atlas/Baxter/filename.md\", \"content\": \"...\", \"tags\": []}.\n5. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n5. Use CalendarManager for events, meetings, appointments or scheduling.\n6. Use NewsTool for current events, local news or anything recently changed.\n7. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n\nTASK DELEGATION: Use CreateTask to run a request in the background when it requires research, multiple tool calls, significant content generation, or the user says: research, look into, compile, draft, or summarize. Call it immediately without asking for approval. Write a self-contained instructions prompt Ã¢â‚¬â€ include all context, the agent has no memory. Tell the user what is running and that they will be notified when done. Use GetTaskStatus for updates.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.`;\n\n  return [{ json: { systemPrompt, onboardingStep: 0, hasProfile: false, fallback: true } }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6208,
+        48
+      ],
+      "id": "1c66cad7-2c7a-421a-9e40-173064928d0e",
+      "name": "BuildSystemPrompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst content = fs.readFileSync('/data/vault/Maps/Navigation.md', 'utf8');\nreturn [{ json: { stdout: content } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5824,
+        48
+      ],
+      "id": "011364df-886f-4112-a95a-6985f6ba0c95",
+      "name": "Vault Navigation"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hxHHSYluIUcYvueS",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/hxHHSYluIUcYvueS",
+          "cachedResultName": "_BaxterCore"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "messageId": "={{ $('SetVars').item.json.ChannelInformation.MessageID }}",
+            "systemPrompt": "={{ $json.systemPrompt }}",
+            "userMessage": "={{ $('SetVars').item.json.RequestInput.input }}",
+            "channelId": "={{ $('SetVars').item.json.ChannelInformation.ChannelID }}",
+            "inputType": "={{ $('SetVars').item.json.InputType }}"
+          },
+          "matchingColumns": [
+            "input"
+          ],
+          "schema": [
+            {
+              "id": "systemPrompt",
+              "displayName": "systemPrompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "userMessage",
+              "displayName": "userMessage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "channelId",
+              "displayName": "channelId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "inputType",
+              "displayName": "inputType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "messageId",
+              "displayName": "messageId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        6496,
+        48
+      ],
+      "name": "Call _BaxterCore",
+      "id": "b573d8b7-0439-4bb7-895b-ebe6487c9017"
+    }
+  ],
+  "pinData": {
+    "Start": [
+      {
+        "json": {
+          "input": "{\"id\":null,\"name\":\"Let's build something\",\"type\":\"orchestrator\",\"status\":\"pending\",\"agent\":\"baxter-orchestrator\",\"dependsOn\":[],\"requiresApproval\":false,\"prompts\":{\"user\":\"Let's build something\",\"core\":\"core-prompt-v1\",\"context\":\"\"},\"contextFile\":null,\"projectId\":null,\"parentTaskId\":null,\"previousTaskId\":null,\"nextTaskId\":null,\"reminders\":[],\"subtasks\":[],\"result\":null,\"response\":null,\"metadata\":{\"inputType\":\"text\",\"telegram\":{\"channelId\":8497733638,\"messageId\":1617}}}"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "ParseInput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ParseInput": {
+      "main": [
+        [
+          {
+            "node": "SetVars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SetVars": {
+      "main": [
+        [
+          {
+            "node": "Vault Navigation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vault Navigation": {
+      "main": [
+        [
+          {
+            "node": "FetchProfile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FetchProfile": {
+      "main": [
+        [
+          {
+            "node": "BuildSystemPrompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BuildSystemPrompt": {
+      "main": [
+        [
+          {
+            "node": "Call _BaxterCore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Call 'z-Baxter-v2-Communication'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call _BaxterCore": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "3d0196f4-ce49-434a-a876-cd1047f9b53f",
+  "meta": {
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "29LJqE792ETp4ObN",
+  "tags": []
+}

@@ -1,0 +1,1342 @@
+{
+  "name": "_BaxterCore",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "systemPrompt"
+            },
+            {
+              "name": "userMessage"
+            },
+            {
+              "name": "channelId",
+              "type": "number"
+            },
+            {
+              "name": "inputType"
+            },
+            {
+              "name": "messageId",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "14d242b0-3de8-4746-ac23-269e8237a4f1",
+      "name": "Start",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        2272,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Receive input from the executeWorkflowTrigger.\n// Supports both direct named-field mapping (workflowInputs) and JSON-wrapped formats.\nconst raw = $('Start').first().json;\n\nlet inp;\nif (raw.userMessage !== undefined || raw.systemPrompt !== undefined) {\n  // Modern: named fields directly on json\n  inp = raw;\n} else if (typeof raw.input === 'string') {\n  // Legacy: single JSON string wrapped under 'input'\n  try { inp = JSON.parse(raw.input); } catch(e) { inp = {}; }\n} else {\n  inp = raw;\n}\n\nreturn {\n  systemPrompt: inp.systemPrompt || '',\n  RequestInput: { input: inp.userMessage || '' },\n  ChannelInformation: {\n    ChannelID: inp.channelId || null,\n    MessageID: inp.messageId || null\n  },\n  InputType: inp.inputType || 'text'\n};"
+      },
+      "id": "d7f40371-4474-47d2-a00a-0e2923d024bd",
+      "name": "SetVars",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2496,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "model": "google_gemma-4-E4B-it-Q8_0.gguf",
+        "options": {
+          "presencePenalty": 1.5,
+          "temperature": 0.7,
+          "topP": 0.8
+        }
+      },
+      "id": "83a60098-54ec-4622-9391-364a7c80c272",
+      "name": "LlamaCpp Main",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [
+        2272,
+        848
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "openAiApi": {
+          "id": "KwvObCRrsz5xzoGV",
+          "name": "LlamaCpp"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "baxter-main",
+        "contextWindowLength": 2
+      },
+      "id": "a882dcda-6d7f-418b-9341-2dfb2ba46142",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        2432,
+        848
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('SetVars').first().json.RequestInput.input }}",
+        "options": {
+          "systemMessage": "={{ $('SetVars').first().json.systemPrompt }}",
+          "maxIterations": 15,
+          "returnIntermediateSteps": true
+        }
+      },
+      "id": "e51a66f2-023c-4e22-a298-756f344379ab",
+      "name": "Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        3312,
+        592
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this only when you are unsure of the database table structure before writing a query. Skip this if you already know the schema.",
+        "operation": "executeQuery",
+        "query": "SELECT table_name, column_name, data_type \nFROM information_schema.columns \nWHERE table_schema = 'public'\nORDER BY table_name, ordinal_position;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4624,
+        848
+      ],
+      "id": "1605d98b-8d30-4f58-bada-7aefee453f88",
+      "name": "GetSchema",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=Execute a SQL SELECT query against PostgreSQL to retrieve conversation history. Always filter by channel_id. Table: message_history | Columns: id, channel_id, input_type, user_input, created_at. Channel ID to use: {{ $('SetVars').first().json.ChannelInformation.ChannelID }}. Example: SELECT id, input_type, user_input, created_at FROM message_history WHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }} ORDER BY created_at DESC LIMIT 10",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('sql_query', 'SQL SELECT query against message_history table') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4768,
+        848
+      ],
+      "id": "865440ce-c4f4-4c74-a91e-1ceb1da086f2",
+      "name": "ExecQuery",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolWikipedia",
+      "typeVersion": 1,
+      "position": [
+        3648,
+        1888
+      ],
+      "id": "27910e06-dba6-4536-b889-c040dcc0ab59",
+      "name": "Wikipedia"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Research and information retrieval sub-agent. Use for web searches, reading full page content from URLs, encyclopedic lookups, and multi-source synthesis. Has access to SearXNG (web search), JinaReader (full page content), Wikipedia, and Weather.",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=LANGUAGE: Always respond in English only, regardless of the language of the query or tool results.\nYou are a research agent. Use your tools in this order:\n\n1. SearXNG: search the web for any query. Returns URLs and snippets.\n2. JinaReader: fetch the full readable content of a URL. Always read at least the top 2 results from SearXNG before answering.\n3. Wikipedia: for factual, historical, or encyclopedic questions where depth matters more than recency.\n4. Weather: for current conditions or forecasts for a specific location.\n\nFor any research task: first search with SearXNG, then fetch the most relevant URLs with JinaReader to get full content, then synthesise. Never answer from memory alone. Always cite the source URL in your response."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        3376,
+        1408
+      ],
+      "id": "b8f9e8d8-14bd-4ed8-96fc-9a45d34b8fa1",
+      "name": "Research Agent"
+    },
+    {
+      "parameters": {
+        "model": "google_gemma-4-E4B-it-Q8_0.gguf",
+        "options": {
+          "maxTokensToSample": 1024
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        3200,
+        1616
+      ],
+      "id": "96f838e1-aebf-4136-9a4f-151bc0039f33",
+      "name": "LlamaCpp Research",
+      "credentials": {
+        "openAiApi": {
+          "id": "KwvObCRrsz5xzoGV",
+          "name": "LlamaCpp"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get current weather and forecast for any location. Provide the city name only as the location parameter, no country or comma. Example: Rotterdam",
+        "url": "=https://wttr.in/{{ encodeURIComponent($fromAI('location', 'The city name only, no country. Example: Rotterdam')) }}?format=j1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        3392,
+        1888
+      ],
+      "id": "cc3fd347-7e88-4221-93df-f5c9eab18dbb",
+      "name": "WeatherAPI"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Search the web using SearXNG. Returns a list of URLs, titles, and snippets for a given query. Use this to find relevant URLs, then use JinaReader to fetch the full content of promising pages.",
+        "url": "=http://searxng:8080/search?q={{ encodeURIComponent($fromAI('query', 'The search query')) }}&format=json&categories=general&language=en",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [3648, 1888],
+      "id": "bc0sea01-0000-0000-0000-000000000001",
+      "name": "SearXNG"
+    },
+    {
+      "parameters": {
+        "name": "JinaReader",
+        "description": "Fetch the full readable content of any webpage as clean markdown. Use after SearXNG to read the actual content of promising URLs. Pass the full URL including https://.",
+        "jsCode": "const url = (typeof query === 'object' ? query.url || query : query).trim();\ntry {\n  const res = await $helpers.request({ method: 'GET', url: 'https://r.jina.ai/' + url, headers: { 'Accept': 'text/plain' }, timeout: 15000 });\n  const text = typeof res === 'string' ? res : JSON.stringify(res);\n  return text.length > 4000 ? text.substring(0, 4000) + '\\n\\n[Content truncated at 4000 chars]' : text;\n} catch(e) {\n  return 'Error fetching URL: ' + e.message;\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [3776, 1888],
+      "id": "bc0jin01-0000-0000-0000-000000000002",
+      "name": "JinaReader"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Query long-term memory for relevant context about the user and past conversations",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "baxter_memory",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        3184,
+        1104
+      ],
+      "id": "eff72834-f929-45b7-9a14-84ee62618103",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "aDY94b6gH9Fj5hxk",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        3184,
+        1312
+      ],
+      "id": "17545a41-9c8f-411c-b604-39593899e348",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "d4PPJUecv5laznT9",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "google_gemma-4-E4B-it-Q8_0.gguf",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        3760,
+        1600
+      ],
+      "id": "ef3bf28f-61e6-44d6-a284-5b4c4fbb9bb7",
+      "name": "LlamaCpp PM",
+      "credentials": {
+        "openAiApi": {
+          "id": "KwvObCRrsz5xzoGV",
+          "name": "LlamaCpp"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Use for anything related to tasks, projects, subtasks, priorities and due dates. Pass the full user request as the prompt.",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=You are Baxter's project management module. You manage projects, tasks, subtasks, and reminders.\n\nLANGUAGE: English only.\nFORMAT: Plain text only. No markdown, no bullet points, no headers.\n\nTOOLS:\n- GetProjects Ã¢â‚¬â€ retrieve all projects. Call before any project action.\n- UpsertProject Ã¢â‚¬â€ create or update a project. MUST be called to apply any change. Status values: active, on_hold, completed.\n- GetTasks Ã¢â‚¬â€ retrieve all tasks. Call before any task action.\n- UpsertTask Ã¢â‚¬â€ create or update a task. MUST be called to apply any change. Use completed=true to mark done.\n- GetSubtasks Ã¢â‚¬â€ retrieve subtasks for a given task. Call before any subtask action.\n- UpsertSubtask Ã¢â‚¬â€ create or update a subtask. MUST be called to apply any change.\n- GetReminders Ã¢â‚¬â€ retrieve all pending reminders.\n- UpsertReminder Ã¢â‚¬â€ create a new reminder. MUST be called to apply any change.\n\nRULES:\n- channel_id is always: {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\n- Before any update, always call the relevant Get tool first to confirm the item exists. Use the existing name/title exactly as stored when calling Upsert Ã¢â‚¬â€ this ensures the unique constraint matches correctly.\n- Priority values: low, medium, high, critical\n- Date format: YYYY-MM-DD\n- Reminder datetime format: YYYY-MM-DD HH:MM:SS in UTC. User is in CET (UTC+1), subtract 1 hour before storing.\n- task_id and subtask_id are optional on reminders. Leave both empty for standalone reminders.\n- CRITICAL: Never confirm any action to the user unless you have received a successful response from the relevant tool call. If the tool was not called, do not claim the action was completed.\n\nPROACTIVE SUGGESTIONS:\n- After creating a project: ask if the user wants to add tasks to it\n- After creating a task: ask if the user wants to set a reminder for it\n- After creating a reminder: ask if the user wants to add subtasks to the linked task\n- After marking a task or project complete: ask if any related items need updating\n- One suggestion only, kept to a single short question at the end of your response\n\nOUTPUT: End every response with RESPONSE: followed by your answer.",
+          "maxIterations": 20
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        3920,
+        1408
+      ],
+      "id": "7ecd9e2f-0393-4f31-a467-eceffc996d61",
+      "name": "Project Manager"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get tasks. Use to retrieve pending, overdue, or completed tasks.",
+        "operation": "executeQuery",
+        "query": "SELECT id, title, details, category, priority, due_date, completed, project_id, created_at \nFROM tasks \nWHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nAND completed = FALSE\nORDER BY due_date ASC NULLS LAST, priority DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4000,
+        1824
+      ],
+      "id": "8a956a46-1322-47a9-a44b-7dcd164aae81",
+      "name": "GetTasks",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "baxter-rs",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        3344,
+        1616
+      ],
+      "id": "c389c022-41c0-469f-a60c-39f3c8c2f688",
+      "name": "Memory RS"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "baxter-pm",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        3904,
+        1600
+      ],
+      "id": "4b9901c1-0609-4a12-b19c-ba06e5b86d7c",
+      "name": "Memory PM"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get subtasks for a specific task by task_id",
+        "operation": "executeQuery",
+        "query": "SELECT id, task_id, title, completed \nFROM subtasks \nWHERE task_id = {{ $fromAI('task_id', 'The parent task ID') }}\nAND completed = FALSE;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4128,
+        1824
+      ],
+      "id": "1a1f752e-2315-4701-8d9e-22b1a0556868",
+      "name": "GetSubtasks",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create or update a task. Use for adding new tasks or updating existing ones.",
+        "operation": "executeQuery",
+        "query": "INSERT INTO tasks (channel_id, title, details, category, priority, due_date, completed, project_id)\nVALUES (\n    {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n    '{{ $fromAI('title', 'Task title') }}',\n    '{{ $fromAI('details', 'Task details') }}',\n    '{{ $fromAI('category', 'Task category') }}',\n    '{{ $fromAI('priority', 'Priority: low, medium, high, critical') }}',\n    NULLIF('{{ $fromAI('due_date', 'Due date in YYYY-MM-DD format, or leave empty') }}', '')::date,\n    {{ $fromAI('completed', 'Boolean, default false') }},\n    NULLIF('{{ $fromAI('project_id', 'Project ID to link to, or leave empty') }}', '')::integer\n)\nON CONFLICT (channel_id, title) DO UPDATE SET\n    details = EXCLUDED.details,\n    category = EXCLUDED.category,\n    priority = EXCLUDED.priority,\n    due_date = EXCLUDED.due_date,\n    completed = EXCLUDED.completed,\n    project_id = EXCLUDED.project_id,\n    updated_at = NOW()\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4000,
+        2000
+      ],
+      "id": "0b339ad5-ab4b-446a-8809-580d3da24216",
+      "name": "UpsertTask",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create or update a subtask for a given task_id",
+        "operation": "executeQuery",
+        "query": "INSERT INTO subtasks (task_id, title, completed)\nVALUES (\n    {{ $fromAI('task_id', 'Parent task ID') }},\n    '{{ $fromAI('title', 'Subtask title') }}',\n    {{ $fromAI('completed', 'Boolean, default false') }}\n)\nON CONFLICT (task_id, title) DO UPDATE SET\n    completed = EXCLUDED.completed\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4128,
+        2000
+      ],
+      "id": "be43b336-42f8-4b47-bbe4-2ad9b67d27d8",
+      "name": "UpsertSubtask",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get subtasks for a specific task by task_id",
+        "operation": "executeQuery",
+        "query": "SELECT r.id, r.message, r.remind_at, r.task_id, r.subtask_id\nFROM reminders r\nWHERE r.channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nAND r.sent = FALSE\nAND r.remind_at > NOW()\nORDER BY r.remind_at ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4256,
+        1824
+      ],
+      "id": "0fe69505-e32e-4b42-950a-cca24a3f09ab",
+      "name": "GetReminders",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create or update a task. Use for adding new tasks or updating existing ones.",
+        "operation": "executeQuery",
+        "query": "INSERT INTO reminders (channel_id, task_id, subtask_id, remind_at, message)\nVALUES (\n    {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n    NULLIF('{{ $fromAI('task_id', 'Task ID as a number, or leave empty if not applicable') }}', '')::integer,\n    NULLIF('{{ $fromAI('subtask_id', 'Subtask ID as a number, or leave empty if not applicable') }}', '')::integer,\n    '{{ $fromAI('remind_at', 'Datetime in YYYY-MM-DD HH:MM:SS format') }}',\n    '{{ $fromAI('message', 'Reminder message text') }}'\n)\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4256,
+        2000
+      ],
+      "id": "515a19d1-64bd-43ef-b0e7-891de4c5a24e",
+      "name": "UpsertReminders",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get tasks. Use to retrieve pending, overdue, or completed tasks.",
+        "operation": "executeQuery",
+        "query": "SELECT id, name, description, status, due_date, created_at\nFROM projects\nWHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nAND status != 'completed'\nORDER BY due_date ASC NULLS LAST;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        3872,
+        1824
+      ],
+      "id": "39146927-fba4-45fa-b17f-d56ffbd4aeaf",
+      "name": "GetProjects",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create or update a task. Use for adding new tasks or updating existing ones.",
+        "operation": "executeQuery",
+        "query": "INSERT INTO projects (channel_id, name, description, status, due_date)\nVALUES (\n    {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n    '{{ $fromAI('name', 'Project name') }}',\n    '{{ $fromAI('description', 'Project description') }}',\n    '{{ $fromAI('status', 'Status: active, on_hold, completed') }}',\n    NULLIF('{{ $fromAI('due_date', 'Due date in YYYY-MM-DD format, or leave empty') }}', '')::date\n)\nON CONFLICT (channel_id, name) DO UPDATE SET\n    description = EXCLUDED.description,\n    status = EXCLUDED.status,\n    due_date = EXCLUDED.due_date\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        3872,
+        2000
+      ],
+      "id": "070ac5b1-444c-42b0-a370-ffd8c2c740e3",
+      "name": "UpsertProject",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Update the user profile. Use this when the user shares new information about themselves, changes their preferences, updates their current focus, or during onboarding. Pass empty strings for fields you do not want to change.",
+        "operation": "executeQuery",
+        "query": "INSERT INTO user_profile (channel_id, soul, user_profile, preferences, current_focus, onboarding_step, updated_at)\nVALUES (\n  {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n  NULLIF('{{ /*n8n-auto-generated-fromAI-override*/ $fromAI('soul', 'Soul definition string, or empty string to keep existing value', 'string') }}', ''),\n  NULLIF('{{ /*n8n-auto-generated-fromAI-override*/ $fromAI('user_profile', 'Structured user profile summary, or empty string to keep existing', 'string') }}', ''),\n  NULLIF('{{ /*n8n-auto-generated-fromAI-override*/ $fromAI('preferences', 'Communication preferences, or empty string to keep existing', 'string') }}', ''),\n  NULLIF('{{ /*n8n-auto-generated-fromAI-override*/ $fromAI('current_focus', 'Current projects or priorities, or empty string to keep existing', 'string') }}', ''),\n  {{ /*n8n-auto-generated-fromAI-override*/ $fromAI('next_onboarding_step', 'Set to 0 when setup is complete, 1-3 during onboarding steps', 'number') }},\n  NOW()\n)\nON CONFLICT (channel_id) DO UPDATE SET\n  soul           = COALESCE(EXCLUDED.soul,          user_profile.soul),\n  user_profile   = COALESCE(EXCLUDED.user_profile,  user_profile.user_profile),\n  preferences    = COALESCE(EXCLUDED.preferences,   user_profile.preferences),\n  current_focus  = COALESCE(EXCLUDED.current_focus, user_profile.current_focus),\n  onboarding_step = EXCLUDED.onboarding_step,\n  updated_at     = NOW();",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4928,
+        848
+      ],
+      "id": "8d99bf36-e9c8-48e6-b0c9-302ef485af60",
+      "name": "UpdateProfile",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "google_gemma-4-E4B-it-Q8_0.gguf",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        4400,
+        1584
+      ],
+      "id": "4c996861-fc86-465d-ba38-74bfffbd2cef",
+      "name": "LlamaCpp Calendar",
+      "credentials": {
+        "openAiApi": {
+          "id": "KwvObCRrsz5xzoGV",
+          "name": "LlamaCpp"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "baxter-calendar",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        4576,
+        1584
+      ],
+      "id": "143781aa-a900-4ca4-a580-7347c01b03ad",
+      "name": "MemoryCalendar"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Get calendar events for a given time range. Use ISO 8601 format for timeMin and timeMax. Example: 2025-03-13T00:00:00+01:00",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "limit": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('limit', 'Max events to return, default 10', 'number') }}",
+        "options": {
+          "orderBy": "startTime"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        4752,
+        1584
+      ],
+      "id": "2a2d5d92-77e9-4d58-ad9a-9b89c9c36d4b",
+      "name": "GetEvents",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "vbr0M6KRwoLDAOWC",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create a new Google Calendar event. Always confirm event details before creating. Check for existing events first to avoid duplicates.",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('start_datetime', 'Event start in ISO 8601 format e.g. 2025-03-13T14:00:00+01:00', 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('end_datetime', 'Event end in ISO 8601 format', 'string') }}",
+        "additionalFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('description', 'Event description or empty string', 'string') }}",
+          "location": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('location', 'Event location or empty string', 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('title', 'Event title', 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        4912,
+        1584
+      ],
+      "id": "4f84307f-deab-4da1-9275-151defc7bcfd",
+      "name": "CreateEvent",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "vbr0M6KRwoLDAOWC",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Update an existing Google Calendar event by event ID. Fetch the event ID using GetEvents first.",
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('event_id', 'The Google Calendar event ID to update', 'string') }}",
+        "updateFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('description', 'New description or empty to keep', 'string') }}",
+          "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('end_datetime', 'New end datetime in ISO 8601 or empty to keep', 'string') }}",
+          "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('start_datetime', 'New start datetime in ISO 8601 or empty to keep', 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('title', 'New event title or empty to keep', 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        5072,
+        1584
+      ],
+      "id": "29b99834-fe1e-4c1f-990e-4c5366ae7369",
+      "name": "UpdateEvent",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "vbr0M6KRwoLDAOWC",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Delete a Google Calendar event by event ID. Always confirm with the user before deleting. Fetch the event ID using GetEvents first.",
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('event_id', 'The Google Calendar event ID to delete', 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        5232,
+        1584
+      ],
+      "id": "dff1c5ce-8ca5-4b7b-a4aa-f9f4ec8cf066",
+      "name": "DeleteEvent",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "vbr0M6KRwoLDAOWC",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Use CalendarManager for anything related to events, meetings, appointments, scheduling, or when the user asks what is on today, this week, or any specific date. Also use when creating tasks that should be calendar events, or when checking availability before scheduling reminders.",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', '', 'string') }}",
+        "options": {
+          "systemMessage": "You are Baxter's calendar management sub-agent. You have access to Google Calendar tools to read, create, update, and delete events.\n\nRULES:\n- Always retrieve existing events for the relevant time range before creating new ones to avoid duplicates.\n- When asked about today's schedule, use GetEvents with timeMin = start of today and timeMax = end of today.\n- Use ISO 8601 datetime format including timezone offset (e.g. 2025-03-13T14:00:00+01:00).\n- Confirm event details with the user before creating or deleting.\n- When creating a task that also needs a calendar block, create both."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        4576,
+        1408
+      ],
+      "id": "d3372b37-f88d-42a4-8502-43b33d93ca1d",
+      "name": "CalendarManager"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Retrieve recent news items from the local database. Use for current events, local Rotterdam/Netherlands news, AI and tech news, or any topic that may have changed recently. Also use proactively when a conversation topic connects to recent news.\nAfter retrieving results, present each item as: Title Ã¢â‚¬â€ one sentence summary. Source, date.\nWhen no specific topic is requested, pass ALL as the topic to retrieve all recent news.",
+        "operation": "executeQuery",
+        "query": "SELECT ns.name as source, ns.category, ni.title, ni.summary, TO_CHAR(ni.published_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as published_at, ni.url\nFROM news_items ni\nJOIN news_sources ns ON ns.id = ni.source_id\nWHERE ns.active = TRUE\nAND (\n  '{{ $fromAI(\"topic\", \"Topic or keyword to search for, or ALL for everything\", \"string\") }}' = 'ALL'\n  OR ni.title ILIKE '%' || '{{ $fromAI(\"topic\", \"Topic or keyword to search for, or ALL for everything\", \"string\") }}' || '%'\n  OR ni.summary ILIKE '%' || '{{ $fromAI(\"topic\", \"Topic or keyword to search for, or ALL for everything\", \"string\") }}' || '%'\n)\nAND ni.published_at >= NOW() - INTERVAL '30 days'\nORDER BY ni.published_at DESC\nLIMIT {{ $fromAI(\"limit\", \"Max results to return, default 10\", \"number\") }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        5072,
+        848
+      ],
+      "id": "98951af0-a008-4708-989c-a5e464ae484a",
+      "name": "NewsTool",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Create a background task for Baxter to execute asynchronously. Use this when a request will take significant time, requires multiple steps, or can be done while Max does other things. The task starts immediately. Agents available: 'research' for web research and information gathering, 'baxter' for general tasks and analysis, 'project_manager' for task/project operations.",
+        "operation": "executeQuery",
+        "query": "INSERT INTO agent_tasks (name, type, status, agent, channel_id, input_type, prompts, requires_approval)\nVALUES (\n    COALESCE(NULLIF('{{ $fromAI(\"title\", \"One-line description of the task\", \"string\") }}', '[undefined]'), LEFT('{{ $('SetVars').first().json.RequestInput.input }}', 80)),\n    'task',\n    'pending',\n    COALESCE(NULLIF('{{ $fromAI(\"agent\", \"Agent: research, baxter, or project_manager\", \"string\") }}', '[undefined]'), 'baxter'),\n    {{ $('SetVars').first().json.ChannelInformation.ChannelID }},\n    '{{ $('SetVars').first().json.InputType }}',\n    jsonb_build_object('user', '{{ $('SetVars').first().json.RequestInput.input }}', 'core', 'core-prompt-v1', 'context', COALESCE(NULLIF('{{ $fromAI(\"instructions\", \"Full instructions for the executing agent\", \"string\") }}', '[undefined]'), '{{ $('SetVars').first().json.RequestInput.input }}')),\n    false\n)\nRETURNING id::text, name as title, agent;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4288,
+        848
+      ],
+      "id": "80ee3e2f-5ff7-4a29-9956-e3699b8c175c",
+      "name": "CreateTask",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Check the status of background tasks. Use when Max asks for an update on a running task, or to show what tasks are pending, running or recently completed.",
+        "operation": "executeQuery",
+        "query": "SELECT id::text, name as title, agent, status, result::text,\n       TO_CHAR(created_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as created_at,\n       TO_CHAR(updated_at AT TIME ZONE 'Europe/Amsterdam', 'DD Mon, HH24:MI') as completed_at\nFROM agent_tasks\nWHERE channel_id = {{ $('SetVars').first().json.ChannelInformation.ChannelID }}\nAND type = 'task'\nORDER BY created_at DESC\nLIMIT 10;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        4464,
+        848
+      ],
+      "id": "565448a3-9cf3-4a21-b02f-dd4794b76526",
+      "name": "GetTaskStatus",
+      "credentials": {
+        "postgres": {
+          "id": "EGPB6szdcUJ4lGdK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "ReadVaultNote",
+        "description": "Reads the full markdown content of a specific note from the Obsidian vault.\nUse this when you know the exact vault-relative path of the note (e.g. after a grep search returned matching paths, or when you know the path from Navigation.md).\nInput must be a vault-relative path including the file extension, e.g. \"Atlas/Topics/AI.md\" or \"Calendar/2026-04-29.md\".",
+        "jsCode": "const fs = require('fs');\nconst notePath = '/data/vault/' + query.trim();\ntry {\n  return fs.readFileSync(notePath, 'utf8');\n} catch(e) {\n  return 'Error reading file: ' + e.message;\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        2768,
+        960
+      ],
+      "id": "686f2ae6-42a8-4111-ace0-c35d0aa30513",
+      "name": "ReadVaultNote"
+    },
+    {
+      "parameters": {
+        "name": "SearchVault",
+        "description": "Searches all markdown notes in the Obsidian vault by keyword using grep.\nReturns a list of vault-relative file paths that contain the search term.\nUse this when you need to find which notes are relevant before reading them with ReadVaultNote.\nInput: a single search keyword or short phrase (case-insensitive). Avoid very common words.",
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst keyword = query.trim().toLowerCase();\nconst vaultRoot = '/data/vault';\nconst matches = [];\n\nfunction walk(dir) {\n  let entries;\n  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch(e) { return; }\n  for (const entry of entries) {\n    const full = path.join(dir, entry.name);\n    if (entry.isDirectory()) {\n      walk(full);\n    } else if (entry.name.endsWith('.md')) {\n      try {\n        const text = fs.readFileSync(full, 'utf8');\n        if (text.toLowerCase().includes(keyword) || entry.name.toLowerCase().includes(keyword)) {\n          matches.push(full.replace(vaultRoot + '/', ''));\n        }\n      } catch(e) {}\n    }\n    if (matches.length >= 20) return;\n  }\n}\n\nwalk(vaultRoot);\nreturn matches.length > 0 ? matches.join('\\n') : 'No matching notes found.';"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        2768,
+        1120
+      ],
+      "id": "c1a60aea-f8b2-442f-981b-568c34a03ddc",
+      "name": "SearchVault"
+    },
+    {
+      "parameters": {
+        "name": "WriteVaultNote",
+        "description": "Creates or overwrites a markdown note in the vault under Atlas/Baxter/.\nUse this to persist research outputs, important facts, or topics Max wants remembered long-term.\nUse when Max explicitly asks to save/remember something, OR when you produce a substantial research output worth keeping.\nDo NOT use for casual conversation or things already covered by LongTermMemory.\nInput: JSON string with fields: path (required, must start with Atlas/Baxter/, e.g. Atlas/Baxter/Maia-Plan.md), content (required, concise markdown body â€” max ~500 words, summarise rather than dump full text), tags (optional array of strings).",
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\nlet params;\nif (typeof query === 'object' && query !== null) {\n  params = query;\n} else {\n  try { params = JSON.parse(query); } catch(e) { return 'Error: could not parse input. Expected JSON with path and content fields.'; }\n}\n\nconst notePath = (params.path || '').trim();\nconst noteContent = (params.content || '').trim();\nconst tags = Array.isArray(params.tags) ? params.tags : [];\n\nif (!notePath.startsWith('Atlas/Baxter/')) {\n  return 'Error: WriteVaultNote can only write to Atlas/Baxter/. Path must start with Atlas/Baxter/.';\n}\nif (!notePath.endsWith('.md')) {\n  return 'Error: path must end with .md';\n}\nif (!noteContent) {\n  return 'Error: content is required.';\n}\n\nconst fullPath = '/data/vault/' + notePath;\nconst dir = path.dirname(fullPath);\nfs.mkdirSync(dir, { recursive: true });\n\nconst now = new Date().toISOString().split('T')[0];\nconst tagLine = tags.length > 0 ? '\\ntags: [' + tags.join(', ') + ']' : '';\nconst frontmatter = '---\\ncreated_by: baxter\\ndate: ' + now + tagLine + '\\n---\\n\\n';\n\nconst finalContent = frontmatter + noteContent;\nfs.writeFileSync(fullPath, finalContent, 'utf8');\nreturn 'Note saved to ' + notePath;"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        2768,
+        1280
+      ],
+      "id": "435e2dac-185b-4869-8c9e-3c208de07faa",
+      "name": "WriteVaultNote"
+    },
+    {
+      "parameters": {
+        "jsCode": "let vars = $('SetVars').first().json;\nlet rawOutput = $('Agent').first().json.output ?? \"\";\n\nconst cleanResponse = (input) => {\n    if (!input || typeof input !== \"string\") return \"\";\n    let output = input.replace(/\\\\n/g, \"\\n\");\n    output = output.replace(/<think>[\\s\\S]*?<\\/think>/gi, \"\");\n    output = output.replace(/<think>[\\s\\S]*/gi, \"\");\n    output = output.replace(/<\\|channel>thought[\\s\\S]*?<channel\\|>/gi, \"\");\n    output = output.replace(/<\\|channel>thought[\\s\\S]*/gi, \"\");\n    output = output.trim();\n    const matches = [...output.matchAll(/RESPONSE:\\s*/g)];\n    if (matches.length > 0) {\n        const last = matches[matches.length - 1];\n        const extracted = output.slice(last.index + last[0].length).trim();\n        if (extracted.length > 0) return extracted.slice(0, 3000) + (extracted.length > 3000 ? \"...\" : \"\");\n    }\n    const reasoningPatterns = [\n        /^(okay|ok|alright|right|so|well)[,\\s]/i,/^let me\\s/i,\n        /^i('ll| will| need to| should| must| can| am going to)\\s/i,\n        /^i('ve| have) (retrieved|fetched|found|got|collected)/i,\n        /^now i('ll| need| should| will| can)/i,\n        /^(first|now|next|then|finally)[,\\s]/i,\n        /^the user[\\s(wants|asked|needs)]/i,\n        /^they (want|asked|need|said)/i,\n        /^(looking at|checking|reviewing|analyzing|considering)/i,\n        /^(since|given that|because|as)\\s/i,\n        /^(therefore|thus|so|hence)\\s/i,\n        /^my (response|answer|plan|approach)/i,\n        /^let me (format|organize|structure|present|summarize|summarise)/i,\n        /^here('s| is) (a summary|the|what)/i,\n        /^this (seems|looks|appears|is a)/i,\n        /^it (seems|looks|appears)/i,\n        /^(OUTPUT:|##OUTPUT|Start your final answer|\\/no_think)/i,\n    ];\n    const lines = output.split(\"\\n\").map(l => l.trim()).filter(Boolean);\n    const responseLines = lines.filter(l => !reasoningPatterns.some(p => p.test(l)));\n    const result = (responseLines.length > 0 ? responseLines : [lines[lines.length - 1] || \"\"]).join(\"\\n\").trim();\n    return result.slice(0, 3000) + (result.length > 3000 ? \"...\" : \"\");\n};\n\nlet response = cleanResponse(rawOutput);\nif (!response || response.trim().length === 0) {\n    response = \"Sorry, I ran into an issue formulating a response. Please try again.\";\n}\n\nreturn {\n    ...vars,\n    AgentOutput: {\n        response,\n        model: null,\n        tokens: { prompt: null, completion: null, total: null },\n        metadata: {}\n    }\n};"
+      },
+      "id": "54773f6a-97eb-437c-85c5-cd90a2feabff",
+      "name": "SetOutput",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4208,
+        544
+      ]
+    }
+  ],
+  "pinData": {
+    "Start": [
+      {
+        "json": {
+          "systemPrompt": "DATE & TIME:\nCurrent datetime: 2026-05-04T14:23:52.624Z\nLocal datetime:   Monday, 4 May 2026 at 16:23\nTimezone:         Europe/Amsterdam\nDay of week:      Monday\n\nDATE & TIME:\nCurrent datetime: 2026-05-04T14:23:52.624Z\nLocal datetime:   Monday, 4 May 2026 at 16:23\nTimezone:         Europe/Amsterdam\nDay of week:      Monday\n\nYou are Baxter â€” sharp, witty and brutally honest â€” a critical thinking companion who manages life, builds systems and researches ideas. Dares to question Max when it matters. Intellectually curious and connects dots across domains without being asked. Calibrated â€” clear about what it knows, infers and doesn't know. Treats important decisions with the weight they deserve. Dry humour included, sugarcoating not..\n\nLANGUAGE: Always respond in English only, regardless of input language.\n\nFORMAT: Use markdown where it aids readability Ã¢â‚¬â€ headers and bullets for lists, news summaries and structured data; plain prose for conversational replies. When presenting news, use: **Title** Ã¢â‚¬â€ one sentence summary. Source, date. Be direct and concise. Maximum 3 sentences for simple factual answers.\n\nABOUT THE USER:\nMax, based in Rotterdam, Netherlands. AI automation builder and researcher â€” focused on designing intelligent systems and staying at the frontier of what AI can do. Equally driven by deeper questions about life, existence and humanity's place in the bigger picture. Thinks out loud and works in focused bursts â€” Baxter should follow the thread, help refine ideas and maintain momentum. Makes decisions based on data and logic, welcomes being challenged and pushed back on. Hates fluff â€” always get to the point.\n\nCOMMUNICATION STYLE: Concise and direct. No fluff, no preamble. English only. Challenge assumptions when warranted. Match the energy of the conversation â€” quick exchanges stay quick, deeper topics get the depth they deserve.\n\nPROFILE: Update the user profile proactively using UpdateProfile whenever the user shares new information, changes a preference, or shifts focus.\n\nTOOLS: Use tools when they add value Ã¢â‚¬â€ do not call tools unnecessarily on every message.\n1. Use LongTermMemory when the user references past events, asks what you remember, or the topic benefits from historical context.\n2. Use ExecQuery only when you need specific recent conversation details.\n3. Call SearchVault to find notes by keyword â€” it returns matching file paths. Then call ReadVaultNote with the path to read the full content. Use ---\ntype: navigation\nupdated: 2026-05-01\n---\n\n# Vault Navigation Guide\n\nThis file is the entry point for any LLM or agent working in this vault. Read this before acting on any note.\n\nFor rules on creating and maintaining notes, see [[Guidelines]].\n\n---\n\n## Vault Purpose\n\nThis is Max's **offline-first personal knowledge base** â€” a second brain that stands alone without internet. It has three goals:\n\n1. **Capture work context** â€” decisions, conversations, project state, so nothing is lost between sessions\n2. **Build reference knowledge** â€” interlinked Atlas topics that grow richer over time and can be queried or extended by an AI\n3. **Develop personal wisdom** â€” Dutch-language notes on philosophy, health, society, and self-improvement that reflect Max's own thinking, not Wikipedia summaries\n\nThe vault is geographically grounded in the **Netherlands (West)** and written for a Dutch-speaking professional context. When in doubt, write as if internet access may not be available.\n\n---\n\n## Owner\n\nThis vault belongs to **Max van Dop** â€” developer at Mendix (part of Siemens), Awards & APIs team. Primary focus: AI-powered developer tooling (Maia), Mendix Marketplace Catalog, API/award infrastructure.\n\nFor full context on Max's background, work, and personal philosophy read: [[Max]]\n\n---\n\n## Agent Instructions\n\nRules for any AI working in this vault:\n\n- **Language**: Personal and Atlas notes are in Dutch. Work/effort notes are in English. Match the language of the file you are editing.\n- **Wikilinks**: Always use `[[NoteTitle]]` syntax to link notes. Never use raw URLs for internal references.\n- **Frontmatter**: All new notes must have YAML frontmatter â€” at minimum `type` and `updated`. Use the appropriate template (see Templates section below).\n- **New notes go here**: Topics â†’ `Atlas/<Area>/<TopicName>/` (choose the right area: Technology, Humanity, Society, or Autonomy), Projects â†’ `Efforts/<Category>/<Name>/` (Work, Personal, or Societal), Daily logs â†’ `Calendar/`, Raw input â†’ `_raw/`.\n- **Never create notes in `Maps/`** â€” this folder is structural only.\n- **Attachments**: All images and binary files go in `_attachements/`.\n- **Do not modify** `Town Square.canvas`, or `.obsidian/` config files unless explicitly asked.\n- **Index notes**: Each folder has an index note named `_<Name>.md`. Always link new notes back to their parent index.\n\n### Content Quality Standards\n\nAll notes should meet these standards â€” check existing notes as reference before creating new ones:\n\n- **Index notes** (`_Name.md`) use an ASCII folder/section diagram at the top to show what's in the topic, followed by a table of child notes with one-line descriptions\n- **Markdown tables** for any comparison (materials, thinkers, settings, tools) â€” never bullet lists of key-value pairs\n- **Cross-link aggressively** â€” every note should link to at least 2â€“3 related notes in other topics; this is what makes the graph view valuable\n- **Dutch for personal content** â€” Atlas/Topics, Atlas/Max.md, Calendar, personal philosophy. English for Efforts and technical work notes\n- **Plain language** â€” write as a knowledgeable practitioner, not an academic. No filler sentences, no definitions of obvious terms\n- **Bronnen section** â€” add a `## Bronnen` section at the bottom of any note that has source material (videos, articles, Wikipedia links)\n- **Stub notes** are intentional placeholders â€” a stub has a frontmatter, a one-line description, and a `## Bronnen` section with collected links. Do not flesh out a stub unless explicitly asked; just add links to Bronnen\n\n---\n\n## Folder Structure\n\n```\nvault/\nâ”œâ”€â”€ Atlas/                        Reference knowledge â€” people, organizations, topics\nâ”‚   â”œâ”€â”€ People/                   Colleagues\nâ”‚   â”œâ”€â”€ Organizations/            Siemens, Mendix, R&D, ComCon, AAA\nâ”‚   â”œâ”€â”€ Technology/               AI, Context, Security, 3D-printing\nâ”‚   â”œâ”€â”€ Humanity/                 Filosofie, Psychologie, Retorica, De-Verteller\nâ”‚   â”œâ”€â”€ Society/                  Maatschappij, FinanciÃ«n, Recht\nâ”‚   â””â”€â”€ Autonomy/                 Health, Zelfvoorzienend, Gevechtsgereedheid, Mentale-kracht, Levenszin\nâ”œâ”€â”€ Calendar/                     Daily log notes, chronologically named (YYYY-MM-DD)\nâ”œâ”€â”€ Efforts/                      Active and archived work â€” projects, initiatives\nâ”‚   â”œâ”€â”€ Work/                     Siemens/Mendix-bound projects\nâ”‚   â”œâ”€â”€ Personal/                 Self-directed development and tools\nâ”‚   â”œâ”€â”€ Societal/                 Societal-facing projects\nâ”‚   â””â”€â”€ _Archive/                 Completed or paused efforts\nâ”œâ”€â”€ Maps/                         Navigation and structural guides (this file)\nâ”œâ”€â”€ Templates/                    Note templates\nâ”œâ”€â”€ Town Square.canvas            Visual overview canvas\nâ”œâ”€â”€ _attachements/                Binary files, pasted images\nâ””â”€â”€ _raw/                         Unprocessed input: links, ideas, raw notes\n```\n\n---\n\n## Atlas â€” Reference Layer\n\nStatic knowledge that doesn't expire.\n\n| Folder | Contents | Index |\n|---|---|---|\n| `Atlas/People/` | Colleagues: Alex, Franklin, Jurre, Leonardo, Nadine, Olaf, Sjoerd | [[_People]] |\n| `Atlas/Organizations/` | Siemens, R&D, Community & Collaboration, AAA team | â€” |\n| `Atlas/Organizations/Mendix/` | Mendix AI tooling, platform, marketplace knowledge | [[_Mendix]] |\n| `Atlas/Technology/` | AI, Context, Security, 3D-printing | [[_Technology]] |\n| `Atlas/Humanity/` | Filosofie, Psychologie, Retorica, De-Verteller | [[_Humanity]] |\n| `Atlas/Society/` | Maatschappij, FinanciÃ«n, Recht | [[_Society]] |\n| `Atlas/Autonomy/` | Health, Zelfvoorzienend, Gevechtsgereedheid, Mentale-kracht, Levenszin | [[_Autonomy]] |\n| `Atlas/Max.md` | Vault owner â€” personal background, team, philosophy | â€” |\n\n### Topics Inventory\n\nTopics are grouped into four areas. Each area has an index note (`_AreaName.md`).\n\n| Area | Index | Topics |\n|---|---|---|\n| Technology | [[_Technology\\|Technology]] | AI, Context, Security, 3D-printing |\n| Humanity | [[_Humanity\\|Humanity]] | Filosofie, Psychologie, Retorica, De-Verteller |\n| Society | [[_Society\\|Society]] | Maatschappij, FinanciÃ«n, Recht |\n| Autonomy | [[_Autonomy\\|Autonomy]] | Health, Zelfvoorzienend, Gevechtsgereedheid, Mentale-kracht, Levenszin |\n\n#### Technology\n\n| Topic | Type | Notes |\n|---|---|---|\n| [[AI]] | single file | AI overview, GenUI, Codex |\n| [[Context]] | single file | Context engineering |\n| [[Security]] | single file | Security reference |\n| [[_3D-printing\\|3D-printing]] | folder | FDM technology, materials, slicer, troubleshooting, print log |\n\n#### Humanity\n\n| Topic | Type | Notes |\n|---|---|---|\n| [[_Filosofie\\|Filosofie]] | folder | Western philosophy knowledge base |\n| [[_Psychologie\\|Psychologie]] | folder | Psychology knowledge base |\n| [[_Retorica\\|Retorica]] | folder | Aristotelian rhetoric, argumentation, fallacies, public speaking, storytelling |\n| [[_De-Verteller\\|De Verteller]] | **stub** | Storytelling as a practice |\n\n#### Society\n\n| Topic | Type | Notes |\n|---|---|---|\n| [[_Maatschappij\\|Maatschappij]] | folder | Thinkers, sociology, existentialism, individual & modernity |\n| [[_FinanciÃ«n\\|FinanciÃ«n]] | folder | Business, macro, micro, personal finance |\n| [[_Recht\\|Recht]] | folder | NL labour, administrative, private, criminal, international law |\n\n#### Autonomy\n\n| Topic | Type | Notes |\n|---|---|---|\n| [[_Health\\|Health]] | folder | Emergency care (14 topics), body, medication, wellness |\n| [[_Zelfvoorzienend\\|Zelfvoorzienend]] | folder | Food, water, energy, repairs, social, communication |\n| [[_Gevechtsgereedheid\\|Gevechtsgereedheid]] | **stub** | EMP, emergency electronics |\n| [[_Mentale-kracht\\|Mentale kracht]] | **stub** | Dopamine, productivity, resilience |\n| [[_Levenszin\\|Levenszin]] | **stub** | Meaning, cosmic perspective |\n\n---\n\n## Calendar â€” Temporal Layer\n\nDaily notes named `YYYY-MM-DD.md`, stored in `Calendar/`. Each links to `[[_Calendar]]` and chains to the previous note via `â† [[prev-date]]`. Freeform content â€” no strict schema.\n\nTemplate: `Templates/Daily Note Template` (auto-selects most recent previous note)\n\nIndex: [[_Calendar]]\n\n---\n\n## Efforts â€” Work Layer\n\nActive projects and initiatives, divided into three categories. Each effort has a folder with an `_<Name>.md` index.\n\n```\nEfforts/\nâ”œâ”€â”€ Work/       Siemens/Mendix-bound projects\nâ”œâ”€â”€ Personal/   Self-directed development and tools\nâ”œâ”€â”€ Societal/   Societal-facing projects\nâ””â”€â”€ _Archive/   Completed or paused efforts\n```\n\n### Work\n\n| Effort | Index | Status |\n|---|---|---|\n| Maia Plan | [[Work/Maia Plan/_Maia Plan\\|_Maia Plan]] | Active |\n| Catalog | [[Work/Catalog/_Catalog\\|_Catalog]] | Active |\n| Siemens MCP Server Xcelerator | [[Work/Siemens MCP Server Xcelerator]] | Active |\n| Architecture | `Efforts/Work/Architecture/` | Ongoing |\n| Presentations | `Efforts/Work/Presentations/` | Ongoing |\n\n### Personal\n\n| Effort | Index | Status |\n|---|---|---|\n| Personal Agents | [[Personal/Personal Agents/_Personal-Agents\\|_Personal-Agents]] | Active |\n| Moestuin | [[Personal/Moestuin/_Moestuin\\|_Moestuin]] | Active |\n| Self-improvement | `Efforts/Personal/Self-improvement/` | Ongoing |\n\n### Societal\n\n| Effort | Index | Status |\n|---|---|---|\n| AI Personas | `Efforts/Societal/AI Personas/` | Ongoing |\n\n### Archive\n\n| Effort | Status |\n|---|---|\n| Gamification | Archived |\n| Audit Logging | Archived |\n\nSub-structure within larger efforts (e.g. Maia Plan):\n- `Epics/` â€” scoped feature areas\n- `Workings/` â€” technical deep-dives, domain model, agent setup\n\nIndex: [[_Efforts]]\n\n---\n\n## Templates\n\n| Template | Use for | Key frontmatter |\n|---|---|---|\n| `Daily Note Template` | New calendar/daily notes | auto-links previous note |\n| `Project Template` | New effort or project | `type`, `status`, `org`, `team`, `updated` |\n| `Topic Template` | New Atlas topic note | `type: topic`, `updated` |\n| `Weekly Note Template` | Weekly review notes | `type: weekly`, `week`, `updated` |\n\n---\n\n## Frontmatter Conventions\n\n| Field | Values                                                                                                      | Used on |\n| --------- | ----------------------------------------------------------------------------------------------------------- | --------------- |\n| `type` | `project`, `topic`, `organization`, `conversation`, `log`, `index`, `person`, `navigation`, `raw`, `weekly` | All notes |\n| `status` | `active`, `paused`, `done`                                                                                  | Project notes |\n| `goal` | Short description string                                                                                    | Project notes |\n| `org` | Wikilink to organization                                                                                    | Project notes |\n| `team` | Wikilink to person or team note                                                                             | Project notes |\n| `updated` | `YYYY-MM-DD`                                                                                                | All notes |\n| `parent` | Wikilink to parent index                                                                                    | Topic sub-notes |\n\n---\n\n## Key Entry Points\n\n| Task                                 | Start here                                                    |\n| ------------------------------------ | ------------------------------------------------------------- |\n| Understand the vault owner           | [[Max]]                                                       |\n| Find a colleague                     | [[_People]]                                                   |\n| Find a project                       | [[_Efforts]]                                                  |\n| Moestuin (food growing project)      | [[_Moestuin]] â€” at `Efforts/Personal/Moestuin/`               |\n| Find a daily log                     | [[_Calendar]]                                                 |\n| Find a reference topic               | [[_Atlas]] â†’ Topics â†’ pick area                               |\n| Browse Technology topics             | [[_Technology]]                                               |\n| Browse Humanity topics               | [[_Humanity]]                                                 |\n| Browse Society topics                | [[_Society]]                                                  |\n| Browse Autonomy topics               | [[_Autonomy]]                                                 |\n| Understand Maia (model provider/API) | [[AI-Tooling]] â€” at `Atlas/Organizations/Mendix/`             |\n| Understand Maia Plan (the product)   | [[_Maia Plan]] â€” at `Efforts/Work/Maia Plan/`                 |\n| Understand Catalog                   | [[_Catalog]] â€” at `Efforts/Work/Catalog/`                     |\n| Find personal agent setups           | [[_Personal-Agents]] â€” at `Efforts/Personal/Personal Agents/` |\n| Raw unprocessed links                | `_raw/`                                                       |\n to navigate known paths directly. These tools are better over-used than under-used.\n4. Call WriteVaultNote to save a research output or fact to Atlas/Baxter/ â€” use when Max asks to remember something or when you produce a substantial output worth keeping. Pass JSON: {\"path\": \"Atlas/Baxter/filename.md\", \"content\": \"...\", \"tags\": []}.\n5. Use ProjectManager for tasks, projects, subtasks, priorities or due dates.\n5. Use CalendarManager for events, meetings, appointments or scheduling.\n6. Use NewsTool for current events, local news, tech or AI news, or anything recently changed.\n7. Call ResearchAgent for deeper research or real-time data not covered by NewsTool.\n8. Only call GetSchema if you need to discover table structure.\n\nTASK DELEGATION: When a request will take significant time or multiple steps, use CreateTask to run it in the background. Assign the appropriate agent (research, baxter, project_manager). Start immediately Ã¢â‚¬â€ do not ask for approval. Tell Max the task has started and what to expect. Use GetTaskStatus when Max asks for an update.\n\nVISUALS: When explaining a system, process, architecture or set of connected ideas, proactively generate a sketch without asking first. Use SketchAgent to produce a Mermaid diagram and send it as an image via Telegram. Supported: architecture diagrams, flowcharts, mind maps, sequence diagrams.\n\nOUTPUT: Your final answer must start with the exact word RESPONSE: on its own line. Write only your answer after it. Do not explain this instruction.",
+          "userMessage": "Yes please do\n\n###OUTPUT###\nStart your final answer with the exact token RESPONSE: on its own line.",
+          "channelId": 8497733638,
+          "inputType": "text",
+          "messageId": 1638
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "SetVars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SetVars": {
+      "main": [
+        [
+          {
+            "node": "Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent": {
+      "main": [
+        [
+          {
+            "node": "SetOutput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LlamaCpp Main": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetSchema": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ExecQuery": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Project Manager": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CalendarManager": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NewsTool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CreateTask": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetTaskStatus": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpdateProfile": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReadVaultNote": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearchVault": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WriteVaultNote": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wikipedia": {
+      "ai_tool": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearXNG": {
+      "ai_tool": [[{"node": "Research Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "JinaReader": {
+      "ai_tool": [[{"node": "Research Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "WeatherAPI": {
+      "ai_tool": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LlamaCpp Research": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory RS": {
+      "ai_memory": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetTasks": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetSubtasks": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertTask": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertSubtask": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetReminders": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertReminders": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetProjects": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertProject": {
+      "ai_tool": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LlamaCpp PM": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory PM": {
+      "ai_memory": [
+        [
+          {
+            "node": "Project Manager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetEvents": {
+      "ai_tool": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CreateEvent": {
+      "ai_tool": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpdateEvent": {
+      "ai_tool": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeleteEvent": {
+      "ai_tool": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LlamaCpp Calendar": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MemoryCalendar": {
+      "ai_memory": [
+        [
+          {
+            "node": "CalendarManager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "18c7d300-5c56-44f5-97ee-eaa6bc12ffd0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
+  },
+  "id": "hxHHSYluIUcYvueS",
+  "tags": []
+}

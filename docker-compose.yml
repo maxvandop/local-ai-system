@@ -28,6 +28,8 @@ x-n8n: &service-n8n
     - N8N_PROTOCOL=https
     - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
     - NODE_FUNCTION_ALLOW_BUILTIN=*
+    - GENERIC_TIMEZONE=Europe/Amsterdam
+    - TZ=Europe/Amsterdam
   env_file:
     - path: .env
       required: true
@@ -188,6 +190,17 @@ services:
               count: 1
               capabilities: [gpu]
 
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    hostname: searxng
+    networks: ['local-bridge']
+    restart: on-failure:5
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+
   kroki:
     image: yuzutech/kroki:latest
     container_name: kroki
@@ -241,9 +254,9 @@ services:
       --host 0.0.0.0
       --port 8080
       --n-gpu-layers 99
-      --ctx-size 16384
+      --ctx-size 32768
       --n-predict -1
-      --parallel 2
+      --parallel 1
       --flash-attn on
     deploy:
       resources:

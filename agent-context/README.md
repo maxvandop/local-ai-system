@@ -19,6 +19,7 @@ Pipeline: Telegram → `a-Baxter-v2-Input` → `c-Baxter-v2-Orchestrator-v8` →
 | **n8n** | `n8nio/n8n:latest` / `:5678` | Workflow engine, hosts Baxter |
 | **postgres** | `pgvector/pgvector:pg16` / `:5432` | Persistent storage for all data |
 | **qdrant** | `qdrant/qdrant` / `:6333` | Vector store (`baxter_memory` collection) |
+| **searxng** | `searxng/searxng` / `:8888` (host) `:8080` (internal) | Self-hosted meta-search engine. JSON API used by the Research Agent via `SearXNG` HTTP Request Tool |
 | **ollama** | `ollama/ollama` / `:11434` | Local LLM host (`llama3.2`, `nomic-embed-text`, `gemma3`) |
 | **llama.cpp** | custom / `:8082` | Main LLM inference, OpenAI-compatible API. Model: `google_gemma-4-E4B-it-Q8_0.gguf` |
 | **whisper** | custom / — | Voice transcription |
@@ -36,10 +37,13 @@ All services run on `local-bridge` external Docker network.
 | `docker-compose.yml` | Defines all services. n8n mounts vault at `/data/vault:ro` |
 | `.env` | All secrets and path variables. See section below |
 | `setup.sh` | One-time setup: creates dirs, `.env` template, Docker network, applies DB schema |
-| `n8n/workflows/c-Baxter-v2-Orchestrator-v8.json` | Main Baxter agent workflow |
+| `n8n/workflows/_BaxterCore.json` | Shared agent sub-workflow (LLM, memory, all tools). Called by Orchestrator and JobRunner |
+| `n8n/workflows/c-Baxter-v2-Orchestrator-v8.json` | Main Baxter orchestrator — parses input, builds system prompt, delegates to `_BaxterCore` |
+| `n8n/workflows/5-JobRunner.json` | Background task runner — polls `agent_tasks`, delegates to `_BaxterCore` |
 | `n8n/workflows/a-Baxter-v2-Input.json` | Input handler (Telegram, voice) |
 | `n8n/workflows/z-Baxter-v2-Communication.json` | Output/reply handler |
 | `postgres_init/` | DB init SQL, runs on first postgres start |
+| `searxng/settings.yml` | SearXNG config: enables JSON format, disables rate limiter |
 
 ---
 
@@ -242,23 +246,41 @@ Entry point for any agent: `Maps/Navigation.md`
 
 ## Workflow pipeline detail
 
-Three workflows form the Baxter pipeline. They communicate via Postgres `message_history` and a shared input JSON format.
+Five workflows form the Baxter system. Live messages and async tasks both route through the shared `_BaxterCore` sub-workflow.
 
 ```
 Telegram message
-  → a-Baxter-v2-Input     (parses text/voice, writes to message_history, triggers Orchestrator)
-  → c-Baxter-v2-Orchestrator-v8  (fetches profile, builds system prompt, runs Tools Agent)
+  → a-Baxter-v2-Input          (parses text/voice, writes to message_history, triggers Orchestrator)
+  → c-Baxter-v2-Orchestrator-v8  (fetches profile, builds system prompt, calls _BaxterCore)
+      → _BaxterCore              (runs Tools Agent with all tools, LLM, memory)
   → z-Baxter-v2-Communication    (sends reply back to Telegram)
+
+Background tasks
+  → 5-JobRunner                (polls agent_tasks, builds context, calls _BaxterCore)
+      → _BaxterCore              (runs Tools Agent with all tools, LLM, memory)
+  → z-Baxter-v2-Communication    (notifies Telegram of result)
 ```
 
 ### Orchestrator internal flow
 
-1. `SetVars` — extracts `ChannelID`, `MessageID`, `UserInput` from the trigger payload
-2. `FetchUserProfile` — Postgres query on `user_profile` WHERE `channel_id`
+1. `ParseInput` — decodes the JSON task payload from the trigger
+2. `SetVars` — extracts `ChannelID`, `MessageID`, `UserInput`, `InputType` into structured vars
 3. `Vault Navigation` — Code node reads `/data/vault/Maps/Navigation.md` → `json.stdout`
-4. `BuildSystemPrompt` — JS Code node that assembles the full system prompt from profile + vault navigation. Branches on `onboarding_step` (1–3 = onboarding, 0 = normal operation)
-5. `Agent` — Tools Agent node with all tools attached via `ai_tool`
-6. Post-agent: logs exchange to `message_history`, strips `RESPONSE:` prefix, forwards to Communication workflow
+4. `FetchProfile` — Postgres query on `user_profile` WHERE `channel_id`
+5. `BuildSystemPrompt` — JS Code node assembles system prompt from profile + vault navigation. Branches on `onboarding_step` (1–3 = onboarding, 0 = normal)
+6. `Call _BaxterCore` — executes the `_BaxterCore` sub-workflow, passing `systemPrompt`, `userMessage`, `channelId`, `messageId`, `inputType`
+7. Post-call: logs exchange to `message_history`, forwards output to Communication workflow
+
+### _BaxterCore internal flow
+
+`_BaxterCore` is a self-contained sub-workflow with a `Start` node (typeVersion 1.1, `inputSource: workflowInputs`) exposing five named fields: `systemPrompt`, `userMessage`, `channelId`, `messageId`, `inputType`.
+
+1. `Start` — receives named input fields from caller
+2. `SetVars` — reads `$('Start').first().json.*`, builds structured `RequestInput`, `ChannelInformation`, `InputType` vars
+3. `Agent` (Tools Agent) — receives `systemPrompt` and `userMessage` from SetVars; has all 30+ tools attached via `ai_tool`
+4. `SetOutput` — wraps agent output in `{ AgentOutput: { response, model, tokens, metadata } }` for callers
+
+All memory nodes have `inputKey: "input"` set to handle the multi-key input object from SetVars.
 
 ### Input payload format (from `task-schema.json`)
 
@@ -290,7 +312,11 @@ The Orchestrator receives tasks as JSON strings on `$json.input`:
 
 ## PostgreSQL schema
 
-All tables live in the `n8n` database. Schema is in `postgres_init/baxter_init.sql` — safe to re-run.
+**Two databases** are in use on the same Postgres instance:
+- `n8n` database — n8n's own internal tables (workflows, credentials, executions, etc.)
+- `postgres` database — Baxter's application tables. Schema is in `postgres_init/baxter_init.sql` — safe to re-run.
+
+The n8n credential "Postgres account" (`id: EGPB6szdcUJ4lGdK`) connects to the **`postgres`** database. All tool nodes (`CreateTask`, `GetSchema`, `ExecQuery`, etc.) use this credential.
 
 | Table | Purpose |
 |---|---|

@@ -81,10 +81,10 @@
             {
               "conditions": {
                 "options": {
-                  "version": 2,
-                  "leftValue": "",
                   "caseSensitive": true,
-                  "typeValidation": "strict"
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
                 },
                 "conditions": [
                   {
@@ -106,10 +106,10 @@
             {
               "conditions": {
                 "options": {
-                  "version": 2,
-                  "leftValue": "",
                   "caseSensitive": true,
-                  "typeValidation": "strict"
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
                 },
                 "combinator": "and",
                 "conditions": [
@@ -145,10 +145,10 @@
       "parameters": {
         "conditions": {
           "options": {
-            "version": 2,
-            "leftValue": "",
             "caseSensitive": true,
-            "typeValidation": "strict"
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
           },
           "conditions": [
             {
@@ -391,10 +391,10 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "JUNY9EjOfjLnmgnM",
+          "value": "29LJqE792ETp4ObN",
           "mode": "list",
-          "cachedResultUrl": "/workflow/JUNY9EjOfjLnmgnM",
-          "cachedResultName": "c-Baxter-v2-Orchestrator-v8"
+          "cachedResultUrl": "/workflow/29LJqE792ETp4ObN",
+          "cachedResultName": "b-Baxter-v3-Orchestrator-v1"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -426,7 +426,7 @@
         -1792,
         1040
       ],
-      "name": "Call Baxter-v2-Orchestrator",
+      "name": "Call Baxter-v3-Orchestrator",
       "id": "6f2ae5f3-9e67-484a-a23d-f5fc9f21ede0"
     }
   ],
@@ -656,7 +656,7 @@
       "main": [
         [
           {
-            "node": "Call Baxter-v2-Orchestrator",
+            "node": "Call Baxter-v3-Orchestrator",
             "type": "main",
             "index": 0
           }
@@ -667,9 +667,10 @@
   "active": true,
   "settings": {
     "executionOrder": "v1",
+    "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "887ce7c5-58d3-4eb0-aa4d-7f80b3470c3a",
+  "versionId": "bb67ce41-53ea-43ea-b622-946985a55f3f",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "896cdcdd1cea2bc74bb94af7579514f89de660ff2048209dd7fcb278a5a84a38"
