@@ -8,7 +8,7 @@ Read this before making any changes. Update it after significant work.
 Self-hosted personal AI assistant stack for **Max van Dop**, running on Docker Compose.
 The assistant is called **Baxter**. It is accessible via **Telegram** (text + voice).
 
-Pipeline: Telegram → `a-Baxter-v2-Input` → `c-Baxter-v2-Orchestrator-v8` → `z-Baxter-v2-Communication` → Telegram
+Pipeline: Telegram → `a-Baxter-v2-Input` → `b-Baxter-v3-Orchestrator-v1` → `z-Baxter-v2-Communication` → Telegram
 
 ---
 
@@ -21,7 +21,7 @@ Pipeline: Telegram → `a-Baxter-v2-Input` → `c-Baxter-v2-Orchestrator-v8` →
 | **qdrant** | `qdrant/qdrant` / `:6333` | Vector store (`baxter_memory` collection) |
 | **searxng** | `searxng/searxng` / `:8888` (host) `:8080` (internal) | Self-hosted meta-search engine. JSON API used by the Research Agent via `SearXNG` HTTP Request Tool |
 | **ollama** | `ollama/ollama` / `:11434` | Local LLM host (`llama3.2`, `nomic-embed-text`, `gemma3`) |
-| **llama.cpp** | custom / `:8082` | Main LLM inference, OpenAI-compatible API. Model: `google_gemma-4-E4B-it-Q8_0.gguf` |
+| **llama.cpp** | custom / `:8082` | Main LLM inference, OpenAI-compatible API. Model: `google_gemma-4-E4B-it-Q8_0.gguf`. Config: `--ctx-size 32768 --parallel 1 --n-predict -1 --flash-attn on` |
 | **whisper** | custom / — | Voice transcription |
 | **comfyui** | custom / — | Image generation (profile: `comfyui` or `all-gpu`) |
 | **qwen-tts** | custom / `:8005` | Text-to-speech |
@@ -38,7 +38,9 @@ All services run on `local-bridge` external Docker network.
 | `.env` | All secrets and path variables. See section below |
 | `setup.sh` | One-time setup: creates dirs, `.env` template, Docker network, applies DB schema |
 | `n8n/workflows/_BaxterCore.json` | Shared agent sub-workflow (LLM, memory, all tools). Called by Orchestrator and JobRunner |
-| `n8n/workflows/c-Baxter-v2-Orchestrator-v8.json` | Main Baxter orchestrator — parses input, builds system prompt, delegates to `_BaxterCore` |
+| `n8n/workflows/b-Baxter-v3-Orchestrator-v1.json` | Main Baxter orchestrator — parses input, builds system prompt, delegates to `_BaxterCore` |
+| `n8n/prompts/baxter-main.md` | System prompt template for the Orchestrator. Loaded at runtime via `fs.readFileSync`. Edit this file to update Baxter's instructions without reimporting workflows |
+| `n8n/prompts/baxter-job.md` | System prompt template for the JobRunner. Same structure as `baxter-main.md` plus `{{TASK_CONTEXT}}` placeholder for background task context |
 | `n8n/workflows/5-JobRunner.json` | Background task runner — polls `agent_tasks`, delegates to `_BaxterCore` |
 | `n8n/workflows/a-Baxter-v2-Input.json` | Input handler (Telegram, voice) |
 | `n8n/workflows/z-Baxter-v2-Communication.json` | Output/reply handler |
@@ -218,9 +220,37 @@ if (typeof query === 'object' && query !== null) {
 
 ### LLM token limits (`maxTokensToSample`)
 The main agent LLM node (`LlamaCpp Main`) has `maxTokensToSample: 8192` set in its options. Without this the model generates until llama.cpp's server cuts it off mid-JSON, causing `SyntaxError: Unterminated string` in tool call parsing.
-- llama.cpp server is configured with `--n-predict -1` (unlimited) and `--ctx-size 16384` — server is not the bottleneck
+- llama.cpp server is configured with `--n-predict -1` (unlimited), `--ctx-size 32768`, `--parallel 1`, `--flash-attn on` — server is not the bottleneck
+- `--parallel 1` is important: with `--parallel 2` the context is split 16k/slot, leaving insufficient room for long tool responses (e.g. JinaReader)
 - The n8n LangChain layer's `maxTokensToSample` is what matters
-- Keep content in toolCode tool calls concise — the tool description says max ~500 words
+- `LlamaCpp Research` (used by Research Agent) has `maxTokensToSample: 1024` — keep research tool call outputs concise
+
+---
+
+## System prompt files
+
+The main system prompt is **not embedded in the workflow JSON** — it lives in external files loaded at runtime:
+
+| File | Used by | Volume mount |
+|---|---|---|
+| `n8n/prompts/baxter-main.md` | Orchestrator `BuildSystemPrompt` | `./n8n/prompts:/data/prompts:ro` |
+| `n8n/prompts/baxter-job.md` | JobRunner `BuildSystemPrompt` | same |
+
+Both files use `{{PLACEHOLDER}}` syntax. The Code node strips comment lines (starting with `#`), then substitutes:
+- `{{SOUL}}` — from `user_profile.soul`
+- `{{ABOUT_USER}}`, `{{COMM_STYLE}}`, `{{CURRENT_FOCUS}}` — from profile fields
+- `{{VAULT_NAVIGATION}}` — from `Vault Navigation` node output
+- `{{TASK_CONTEXT}}` — (job only) from `FetchTaskContext` node: parent goal + completed sibling summaries
+
+To change Baxter's tool instructions, tone, or output format: **edit the `.md` file and save** — no n8n reimport needed.
+
+### Anti-hallucination rule
+Both prompt files contain this instruction in the TOOLS section:
+> `You MUST actually invoke a tool to use it — never describe a tool call in your response text without invoking it first. All tool calls happen before you write RESPONSE:.`
+
+This was added after observing the model narrate tool calls (e.g. "I have saved the note...") without actually invoking the tool — caused by the `RESPONSE:` output constraint prematurely switching the model into output mode.
+
+**Root cause**: The `###OUTPUT###` instruction was previously appended to the user message in `SetVars`. This has been removed — the output instruction now lives only in the system prompt.
 
 ---
 
@@ -250,24 +280,24 @@ Five workflows form the Baxter system. Live messages and async tasks both route 
 
 ```
 Telegram message
-  → a-Baxter-v2-Input          (parses text/voice, writes to message_history, triggers Orchestrator)
-  → c-Baxter-v2-Orchestrator-v8  (fetches profile, builds system prompt, calls _BaxterCore)
-      → _BaxterCore              (runs Tools Agent with all tools, LLM, memory)
-  → z-Baxter-v2-Communication    (sends reply back to Telegram)
+  → a-Baxter-v2-Input              (parses text/voice, writes to message_history, triggers Orchestrator)
+  → b-Baxter-v3-Orchestrator-v1    (fetches profile, builds system prompt, calls _BaxterCore)
+      → _BaxterCore                (runs Tools Agent with all tools, LLM, memory)
+  → z-Baxter-v2-Communication      (sends reply back to Telegram)
 
 Background tasks
-  → 5-JobRunner                (polls agent_tasks, builds context, calls _BaxterCore)
-      → _BaxterCore              (runs Tools Agent with all tools, LLM, memory)
-  → z-Baxter-v2-Communication    (notifies Telegram of result)
+  → 5-JobRunner                    (polls agent_tasks, builds context, calls _BaxterCore)
+      → _BaxterCore                (runs Tools Agent with all tools, LLM, memory)
+  → z-Baxter-v2-Communication      (notifies Telegram of result)
 ```
 
-### Orchestrator internal flow
+### Orchestrator internal flow (`b-Baxter-v3-Orchestrator-v1`)
 
 1. `ParseInput` — decodes the JSON task payload from the trigger
-2. `SetVars` — extracts `ChannelID`, `MessageID`, `UserInput`, `InputType` into structured vars
+2. `SetVars` — extracts `ChannelID`, `MessageID`, `UserInput`, `InputType` into structured vars. **Does NOT append any output instruction to the user message** — that is handled entirely in the system prompt.
 3. `Vault Navigation` — Code node reads `/data/vault/Maps/Navigation.md` → `json.stdout`
 4. `FetchProfile` — Postgres query on `user_profile` WHERE `channel_id`
-5. `BuildSystemPrompt` — JS Code node assembles system prompt from profile + vault navigation. Branches on `onboarding_step` (1–3 = onboarding, 0 = normal)
+5. `BuildSystemPrompt` — JS Code node. In normal operation mode: reads `n8n/prompts/baxter-main.md` via `fs.readFileSync('/data/prompts/baxter-main.md', 'utf8')` and substitutes `{{SOUL}}`, `{{ABOUT_USER}}`, `{{COMM_STYLE}}`, `{{CURRENT_FOCUS}}`, `{{VAULT_NAVIGATION}}` placeholders. In onboarding mode: builds prompt inline (steps 1–3). **To update Baxter's instructions, edit `baxter-main.md` — no workflow reimport needed.**
 6. `Call _BaxterCore` — executes the `_BaxterCore` sub-workflow, passing `systemPrompt`, `userMessage`, `channelId`, `messageId`, `inputType`
 7. Post-call: logs exchange to `message_history`, forwards output to Communication workflow
 
@@ -365,6 +395,25 @@ Workflow JSON files follow n8n's export format. Key top-level fields: `name`, `n
 | `5-JobRunner.json` | Polling | Runs async background tasks created by Baxter via `CreateTask` tool |
 | `6-SketchRenderer.json` | On-demand | Renders Mermaid diagrams, sends as image to Telegram |
 | `7-NewsDigest.json` | Periodic | Fetches RSS feeds, stores to `news_items` |
+
+---
+
+## CreateTask SQL — known gotchas
+
+The `CreateTask` Postgres tool in `_BaxterCore` uses n8n expression syntax (`{{ }}`) to interpolate `$fromAI()` values directly into SQL strings. Two issues have been fixed:
+
+### 1. Single-quote escaping
+AI-generated values can contain single quotes (e.g. `'Optimization Trap'`). These break PostgreSQL string literals. All `$fromAI()` interpolations and user-input fallbacks use `.replace(/'/g, "''")` to double-escape them:
+```sql
+COALESCE(NULLIF('{{ $fromAI("title", ...).replace(/'/g, "''") }}', '[undefined]'), ...)
+```
+If you ever add new `$fromAI()` fields to this SQL, always append `.replace(/'/g, "''")`.
+
+### 2. `[undefined]` field values
+`$fromAI()` returns the string `[undefined]` when the model omits an argument. All optional fields are wrapped in `COALESCE(NULLIF(..., '[undefined]'), fallback)` to substitute a safe default.
+
+### 3. `prompts.user` content
+`prompts.user` is populated from `$('SetVars').first().json.RequestInput.input` — the raw user message, **without** any injected output instructions. The `###OUTPUT###` suffix that was previously appended in `SetVars` has been removed to prevent it leaking into task records.
 
 ---
 
